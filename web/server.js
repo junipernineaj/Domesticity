@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const port = Number(process.env.PORT ?? 8080);
+// Loopback only by default. Remote access goes through Cloudflare Tunnel on the same
+// host (web/deploy/README.md), so nothing on the network can reach the port directly.
+const host = process.env.HOST ?? '127.0.0.1';
 
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -36,6 +39,6 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404).end('Not found');
   }
-}).listen(port, () => {
-  console.log(`Domesticity web on http://localhost:${port}`);
+}).listen(port, host, () => {
+  console.log(`Domesticity web on http://${host}:${port}`);
 });
