@@ -951,6 +951,7 @@ async function boot() {
     for (const c of COLLECTIONS) state[c] = data[c];
     state.issueImages = new Map(data.issueImages.map((id) => [id, 0]));
     takeSnapshot();
+    lastServer = serverSnapshot(data);
     state.loaded = true;
     state.error = null;
   } catch {
@@ -1025,4 +1026,41 @@ function updateSaveStatus() {
 }
 
 window.addEventListener('hashchange', render);
+
+// What the server last sent, per collection. Compared with fresh data to see if anything changed
+// elsewhere. Compared with the server's own output, so the page's small differences don't count.
+let lastServer = null;
+function serverSnapshot(data) {
+  return new Map(COLLECTIONS.map((c) => [c, new Map(data[c].map((i) => [i.id, JSON.stringify(i)]))]));
+}
+
+// The page loads its data once. When it comes back into view, pick up changes made elsewhere
+// (another device or tab), as long as nothing here is unsaved. Re-renders only if the server's data
+// differs, so a half-typed form is left alone when nothing has changed.
+async function refreshFromServer() {
+  if (!state.loaded || !lastServer || syncing || pendingOps().length > 0) return;
+  let data;
+  try {
+    const res = await fetch('/api/data', { cache: 'no-store' });
+    if (!res.ok) return;
+    data = await res.json();
+  } catch {
+    return;
+  }
+  if (pendingOps().length > 0) return;
+  const fresh = serverSnapshot(data);
+  const changed = COLLECTIONS.some((c) => {
+    const prev = lastServer.get(c);
+    const now = fresh.get(c);
+    return now.size !== prev.size || [...now].some(([id, json]) => prev.get(id) !== json);
+  });
+  if (!changed) return;
+  for (const c of COLLECTIONS) state[c] = data[c];
+  state.issueImages = new Map(data.issueImages.map((id) => [id, 0]));
+  takeSnapshot();
+  lastServer = fresh;
+  render();
+}
+window.addEventListener('focus', refreshFromServer);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshFromServer(); });
 boot();
