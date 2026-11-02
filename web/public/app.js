@@ -3,7 +3,7 @@
 import { todayIn } from '/src/dates.js';
 import { nextDue, completionsFor } from '/src/schedule.js';
 import { householdStats } from '/src/stats.js';
-import { group, LENSES, outstanding } from '/src/outstanding.js';
+import { byMonth, group, inRange, LENSES, LONG_RANGES, outstanding } from '/src/outstanding.js';
 import { status } from '/src/status.js';
 import { scheduleText } from '/src/describe.js';
 import { expandRoutines } from '/src/spaces.js';
@@ -23,6 +23,8 @@ const VIEWS = [
   { id: 'category', label: 'Category', lens: 'category' },
   { id: 'person', label: 'Person', lens: 'person' },
   { id: 'cadence', label: 'Cadence', lens: 'cadence' },
+  { id: 'next-quarter', label: LONG_RANGES['next-quarter'].label },
+  { id: 'next-year', label: LONG_RANGES['next-year'].label },
 ];
 
 const KINDS = [
@@ -205,9 +207,13 @@ function statusPage() {
 function outstandingPage(viewId) {
   const view = VIEWS.find((v) => v.id === viewId) ?? VIEWS[0];
   const isOverdue = view.id === 'overdue';
+  const range = LONG_RANGES[view.id];
+  // The longer-range tabs look a year ahead; the rest of the page uses the 7 or 30 day window.
   const items = isOverdue
     ? outstandingItems(0).filter((i) => i.days < 0)
-    : outstandingItems(state.horizonDays);
+    : range
+      ? inRange(outstandingItems(LONG_RANGES['next-year'].max), range.min, range.max)
+      : outstandingItems(state.horizonDays);
 
   const viewBar = el('div', { class: 'segmented', role: 'group', 'aria-label': 'View' },
     ...VIEWS.map((v) => el('a', {
@@ -216,7 +222,7 @@ function outstandingPage(viewId) {
     }, v.label)),
   );
 
-  const horizonBar = isOverdue ? null : el('div', { class: 'segmented', role: 'group', 'aria-label': 'Look ahead' },
+  const horizonBar = isOverdue || range ? null : el('div', { class: 'segmented', role: 'group', 'aria-label': 'Look ahead' },
     ...HORIZONS.map((h) => el('button', {
       'aria-pressed': h === state.horizonDays ? 'true' : 'false',
       onclick: () => { state.horizonDays = h; render(); },
@@ -225,20 +231,24 @@ function outstandingPage(viewId) {
 
   let body;
   if (items.length === 0) {
-    body = el('div', { class: 'empty' }, isOverdue ? 'Nothing overdue.' : 'Nothing outstanding in this window.');
+    body = el('div', { class: 'empty' }, isOverdue ? 'Nothing overdue.' : range ? 'Nothing due in this range.' : 'Nothing outstanding in this window.');
   } else if (isOverdue) {
     body = groupSection('Overdue', items);
+  } else if (range) {
+    body = el('div', {}, ...byMonth(items).map((g) => groupSection(g.key, g.items)));
   } else {
     const lens = LENSES.find((l) => l.id === view.lens);
     body = el('div', {}, ...group(items, lens).map((g) => groupSection(g.key, g.items)));
   }
 
+  const note = range
+    ? `Due ${range.min} to ${range.max} days from today, grouped by the month they fall due in.`
+    : 'A routine appears under every heading that applies, so one task can show up in several places.';
   return el('div', {},
     el('h1', {}, 'Outstanding'),
     el('div', { class: 'row' }, viewBar, horizonBar),
     body,
-    el('p', { class: 'hint' },
-      'A routine appears under every heading that applies, so one task can show up in several places.'),
+    el('p', { class: 'hint' }, note),
   );
 }
 
