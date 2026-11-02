@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # Installs or updates Domesticity web on the server. Safe to run again.
 #
-#   sudo ./install.sh /path/to/domesticity/web
+#   sudo ./web/deploy/install.sh              # uses the web/ folder this script is in
+#   sudo ./web/deploy/install.sh /some/web   # or a copy of web/ elsewhere
 #
 # Copies the app to /opt/domesticity/web, runs the tests there, installs the systemd
 # unit, and restarts the service. It does not touch Cloudflare, cloudflared, or any
 # other service on the host.
 set -euo pipefail
 
-SRC="${1:?usage: sudo ./install.sh /path/to/domesticity/web}"
+# Default to the web/ folder that contains this script (web/deploy/install.sh -> web/).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 APP_DIR=/opt/domesticity
 PORT=8095
 
@@ -32,7 +35,7 @@ if (( NODE_MAJOR < 22 )); then
 fi
 
 # Refuse to take over a port something else is already using.
-if ss -ltn "sport = :$PORT" | grep -q LISTEN && ! systemctl is-active --quiet domesticity-web; then
+if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null && ! systemctl is-active --quiet domesticity-web; then
   echo "Port $PORT is already in use by another service. Change PORT in the unit and cloudflared config." >&2
   exit 1
 fi
