@@ -444,21 +444,21 @@ function routineEditor(id) {
     add('How often it renews', f.everyMonths),
     add('Remind this many days before (lead time)', f.leadDays, 'Reminders are not sent yet. Renewals show on Outstanding from this many days ahead.'),
   );
-  // Renewals use the set date instead of the every-N-days, weekday and day-of-month fields.
-  const otherScheduleFields = [
-    add('Every how many days? (for "Every N days")', f.intervalDays),
-    el('div', {},
-      el('div', { class: 'hint' }, 'Which weekdays? (for "On set weekdays")'),
-      el('div', { class: 'days' }, ...f.dayBoxes.map(({ box, label }) => el('label', {}, box, label)))),
-    add('Day of the month (for "Monthly")', f.dayOfMonth, 'Days 29–31 fall back to the last day in shorter months.'),
-  ];
-  const syncRenewal = () => {
-    const isRenewal = f.kind.value === 'renewal';
-    renewalFields.hidden = !isRenewal;
-    for (const node of otherScheduleFields) node.hidden = isRenewal;
+  // Each schedule shows only its own fields. Weekday ticks, for example, only matter for "On set weekdays".
+  const intervalField = add('Every how many days? (for "Every N days")', f.intervalDays);
+  const weekdayField = el('div', {},
+    el('div', { class: 'hint' }, 'Which weekdays? (for "On set weekdays")'),
+    el('div', { class: 'days' }, ...f.dayBoxes.map(({ box, label }) => el('label', {}, box, label))));
+  const monthField = add('Day of the month (for "Monthly")', f.dayOfMonth, 'Days 29–31 fall back to the last day in shorter months.');
+  const syncSchedule = () => {
+    const kind = f.kind.value;
+    intervalField.hidden = kind !== 'interval';
+    weekdayField.hidden = kind !== 'weekly';
+    monthField.hidden = kind !== 'monthly';
+    renewalFields.hidden = kind !== 'renewal';
   };
-  f.kind.addEventListener('change', syncRenewal);
-  syncRenewal();
+  f.kind.addEventListener('change', syncSchedule);
+  syncSchedule();
 
   return el('form', {
     class: 'editor',
@@ -471,7 +471,9 @@ function routineEditor(id) {
     add('Tags (comma-separated, e.g. cleaning, laundry)', f.tags),
     add('Repeat for each of these things in your spaces (optional, e.g. Toilet)', f.targetType, 'Each toilet on the Spaces page becomes its own task, with its space named.'),
     add('Schedule', f.kind),
-    ...otherScheduleFields,
+    intervalField,
+    weekdayField,
+    monthField,
     renewalFields,
     el('label', { class: 'check' }, f.paused, 'Paused (doesn\'t come up or remind)'),
     errorEl,
