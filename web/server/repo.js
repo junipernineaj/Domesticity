@@ -4,12 +4,14 @@ import { seed } from '../src/seed.js';
 import { todayIn } from '../src/dates.js';
 import { ASSIGNEES, RAGS, SEVERITIES } from '../src/issues-rules.js';
 import { randomUUID } from 'node:crypto';
+import { sniffImage } from './images.js';
 
 export const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions'];
 const MAX_OPS = 500;
 
 export class ValidationError extends Error {}
 export class ConflictError extends Error {}
+export class NotFoundError extends Error {}
 
 const fail = (message) => {
   throw new ValidationError(message);
@@ -318,7 +320,48 @@ export function loadAll(db) {
       skipped: c.skipped === 1,
       personId: c.person_id,
     })),
+    // Ids of the items that have a picture. The pictures themselves come from their own endpoint (ADR-0013).
+    issueImages: db.prepare('SELECT issue_id FROM issue_images ORDER BY issue_id').all().map((r) => r.issue_id),
   };
+}
+
+/** The picture for an item, or null when it has none. */
+export function getIssueImage(db, issueId) {
+  const row = db.prepare('SELECT mime, bytes FROM issue_images WHERE issue_id = ?').get(issueId);
+  return row ?? null;
+}
+
+/**
+ * Stores the picture for an item, replacing any earlier one, and logs it (ADR-0013).
+ * @param {import('node:sqlite').DatabaseSync} db
+ * @param {string} issueId
+ * @param {Uint8Array} bytes
+ */
+export function setIssueImage(db, issueId, bytes) {
+  const mime = sniffImage(bytes);
+  if (!mime) fail('The file is not a JPEG, PNG or WebP picture');
+  return transaction(db, () => {
+    const issue = db.prepare('SELECT kind, title FROM issues WHERE id = ?').get(issueId);
+    if (!issue) throw new NotFoundError('No such item');
+    const replacing = db.prepare('SELECT 1 FROM issue_images WHERE issue_id = ?').get(issueId);
+    db.prepare(
+      `INSERT INTO issue_images (issue_id, mime, bytes, added_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(issue_id) DO UPDATE SET mime = excluded.mime, bytes = excluded.bytes, added_at = excluded.added_at`,
+    ).run(issueId, mime, bytes, new Date().toISOString());
+    const verb = replacing ? 'Replaced image on' : 'Added image to';
+    logActivity(db, 'issues', `${verb} ${KIND_LABEL[issue.kind]}: ${issue.title}`);
+  });
+}
+
+/** Removes the picture for an item and logs it. */
+export function removeIssueImage(db, issueId) {
+  return transaction(db, () => {
+    const issue = db.prepare('SELECT kind, title FROM issues WHERE id = ?').get(issueId);
+    if (!issue) throw new NotFoundError('No such item');
+    const removed = db.prepare('DELETE FROM issue_images WHERE issue_id = ?').run(issueId);
+    if (removed.changes === 0) throw new NotFoundError('No picture on this item');
+    logActivity(db, 'issues', `Removed image from ${KIND_LABEL[issue.kind]}: ${issue.title}`);
+  });
 }
 
 /**

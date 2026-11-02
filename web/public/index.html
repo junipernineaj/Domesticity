@@ -45,6 +45,10 @@
     ul.items li:first-child { border-top: 0; }
     .title { font-weight: 600; }
     .meta { color: var(--muted); font-size: .9rem; }
+    .issue-photo, .photo-actions, .photo-error { grid-column: 1 / -1; }
+    .issue-photo { display: block; margin-top: 4px; width: max-content; max-width: 100%; }
+    .photo-actions { justify-content: flex-start; flex-wrap: wrap; margin-top: 2px; }
+    .issue-photo img { display: block; max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--line); }
     .due.overdue { color: var(--late); font-weight: 600; }
     .due.today { color: var(--today); font-weight: 600; }
     .actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
