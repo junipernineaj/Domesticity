@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.6, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log)
+Status: Draft v0.7, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -114,11 +114,11 @@ Routines come back on a schedule. Problems and ideas don't: they stay open until
 - Each item has a title, a kind, an optional space, the day it was added, a done day, and an optional image. An item is open until it has a done day.
 - **Snag severity:** each snag has one severity, which is separate from its RAG colour:
   - Severity: Cosmetic, Needs fixing soon, or Unsafe.
-  - RAG: Red, Amber, or Green. Used for colour coding and for ordering, Red first.
+  - RAG: Red, Amber, or Green. This is urgency: how soon the item needs attention. Used for colour coding and for ordering, Red first.
   The two are set independently. They usually correlate, but a snag can be, for example, Unsafe and Amber. Within a RAG colour, oldest first.
 - **Snags have no deadline.**
 - **Snag assignee:** every snag is either Household or External (a contractor).
-- **Nice to have score:** two sliders, Cost and Effort. The score is the average of the two. Nice to haves are not RAG rated. The slider scale and direction are not yet decided.
+- **Nice to have score:** two sliders, Cost and Effort. The score is the average of the two. Nice to haves are not RAG rated. Each slider runs from 1 to 5. Which end is high is not yet decided.
 - **Done** closes an item and moves it off the open lists.
 - **Reopen:** a closed snag or nice to have can be reopened, because a fix may not work. Reopening clears the done day. Every close and reopen is recorded in the activity log (6.10).
 - **Image:** a snag or nice to have can have an image attached, so the problem or idea can be seen. Images are stored on junipernine2 and served behind the same login as the rest of the app. Upload is not built yet.
@@ -137,6 +137,7 @@ A record of what happened, newest first, so changes can be traced.
 - Records every change made in the app: adding a snag, nice to have or routine, completing or skipping a routine, editing, deleting, and opening or reopening a snag or nice to have.
 - Each entry has the time, what happened, and the item it concerns. Routine entries name the routine and, where it applies, the place.
 - Entries are only added, never edited or removed (GUARDRAILS: history is never hard-deleted).
+- The log is kept forever. It is not trimmed.
 - The log is shown newest first, on its own page.
 
 ### 6.5 Household (People)
