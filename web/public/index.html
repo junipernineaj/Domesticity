@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Domesticity · Outstanding</title>
+  <style>
+    :root { --bg: #f7f6f2; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e4e2da; --accent: #2f6f5e; --late: #b3412e; --today: #b07a10; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #161615; --card: #1f1f1d; --ink: #f0efe9; --muted: #9c9b93; --line: #333330; --accent: #6fb8a3; --late: #e27a64; --today: #e0ad4a; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.4 system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--ink); }
+    main { max-width: 760px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.5rem; margin: 8px 0 4px; }
+    .summary { color: var(--muted); margin-bottom: 16px; }
+    .summary strong { color: var(--ink); }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .segmented button { border: 0; background: var(--card); color: var(--ink); padding: 8px 12px; cursor: pointer; font: inherit; }
+    .segmented button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+    section.group { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin: 12px 0; overflow: hidden; }
+    section.group header { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    section.group header h2 { font-size: 1rem; margin: 0; }
+    section.group header span { color: var(--muted); font-size: .9rem; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+    li:first-child { border-top: 0; }
+    .title { font-weight: 600; }
+    .meta { color: var(--muted); font-size: .9rem; }
+    .due.overdue { color: var(--late); font-weight: 600; }
+    .due.today { color: var(--today); font-weight: 600; }
+    .actions { display: flex; gap: 6px; align-items: center; }
+    .actions button { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: .9rem; }
+    .actions button.done { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .note { color: var(--muted); font-size: .85rem; margin-top: 16px; }
+    .empty { padding: 24px; text-align: center; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Outstanding</h1>
+    <p class="summary" id="summary"></p>
+    <div class="controls">
+      <div class="segmented" id="lenses" role="group" aria-label="Group by"></div>
+      <div class="segmented" id="horizon" role="group" aria-label="Look ahead"></div>
+    </div>
+    <div id="groups"></div>
+    <p class="note">A routine appears under every category and place it has, so one task can show up in several places. Phase 0 keeps data in memory only: changes reset when the page reloads.</p>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

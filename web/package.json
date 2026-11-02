@@ -1,0 +1,14 @@
+{
+  "name": "domesticity-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Domesticity web app: household routines, browser version. Phase 0 has no dependencies.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node server.js"
+  }
+}
