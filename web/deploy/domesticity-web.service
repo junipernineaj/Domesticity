@@ -10,8 +10,8 @@ Type=simple
 User=domesticity
 Group=domesticity
 WorkingDirectory=/opt/domesticity/web
-# Check the path with: command -v node  (adjust if it is not /usr/bin/node)
-ExecStart=/usr/bin/node /opt/domesticity/web/server.js
+# install.sh rewrites this line to point at the Node 22 it checked (default /opt/node22/bin/node).
+ExecStart=/opt/node22/bin/node /opt/domesticity/web/server.js
 Environment=PORT=8095
 Environment=HOST=127.0.0.1
 Restart=on-failure

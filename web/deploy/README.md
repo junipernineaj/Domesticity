@@ -6,9 +6,23 @@ Read ADR-0008 for the reasons. The steps below are for you to run on the server 
 
 ## Before you start
 
-- Node 22 or later on the server: `node -v`. Note the path with `command -v node`. If it isn't `/usr/bin/node`, edit `ExecStart` in `domesticity-web.service`.
 - Port 8095 is free: `ss -ltn | grep 8095` should print nothing. The recipe and photo apps are on other ports, so check if you want to use a different one.
 - `junipernine.com` is managed in Cloudflare, so the tunnel can create `domesticity.junipernine.com` there.
+
+## 0. Install Node 22 alongside the existing Node
+
+The server's default Node is older (12 on junipernine2), and other apps may depend on it, so this installs Node 22 into its own folder and leaves the system Node alone:
+
+```sh
+uname -m                     # x86_64 -> linux-x64, aarch64 -> linux-arm64
+cd /tmp
+curl -fsSLO https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.xz
+sudo mkdir -p /opt/node22
+sudo tar -xJf node-v22.23.4-linux-x64.tar.xz -C /opt/node22 --strip-components=1
+/opt/node22/bin/node -v      # should print v22.23.4
+```
+
+Use the `linux-arm64` file name if `uname -m` printed `aarch64`. The installer uses `/opt/node22/bin/node` and rewrites the service to match. Nothing else on the server uses it.
 
 ## 1. Install the app
 
