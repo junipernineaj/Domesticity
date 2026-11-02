@@ -1,6 +1,6 @@
 # ADR-0002: PostgreSQL on junipernine2, exposed through Cloudflare Tunnel
 
-Status: Accepted
+Status: Accepted. Amended by ADR-0010: the database is now a SQLite file, not PostgreSQL. The Cloudflare Tunnel decision still stands.
 Date: 2026-11-02
 
 ## Context

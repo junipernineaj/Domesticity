@@ -12,7 +12,7 @@ Rules for anyone (human or Claude) changing Domesticity Web. These protect the h
 
 - Completion history is never hard-deleted. Deleting a routine cascades to its completions only through the explicit delete action with confirmation.
 - No migration may drop or rewrite columns that hold history (`completion.*`) without a reviewed backup first.
-- Every migration is reviewed before it runs on junipernine2. Take a `pg_dump` before any schema change.
+- Every migration is reviewed before it runs on junipernine2. Take a snapshot (`VACUUM INTO`, see ADR-0010) before any schema change.
 - Dates for scheduling are stored as `date` in the household timezone. Do not store scheduling dates as `timestamptz`.
 
 ## Security and secrets
