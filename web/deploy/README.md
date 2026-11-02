@@ -2,6 +2,8 @@
 
 This runs the app on your Ubuntu server and makes it reachable at `domesticity.junipernine.com` through a Cloudflare Tunnel. The server opens no inbound ports. Cloudflare Access sits in front of the hostname, so only your email can get in.
 
+You don't need a browser or a screen on the server. The tunnel is created in the Cloudflare dashboard on your Mac, and the server only runs one install command with a token. You open the site from your Mac's browser as normal.
+
 Read ADR-0008 for the reasons. The steps below are for you to run on the server and in the Cloudflare dashboard. Nothing here changes Cloudflare or DNS automatically.
 
 ## Before you start
@@ -43,41 +45,31 @@ systemctl status domesticity-web --no-pager
 curl -s http://127.0.0.1:8095/ | head -5
 ```
 
-## 2. Install cloudflared
+## 2. Create the tunnel in the Cloudflare dashboard (on your Mac)
 
-Follow Cloudflare's current install instructions for Ubuntu (their apt repository). Then check:
+This is done in a browser on your Mac, not on the server.
+
+1. Open the Cloudflare Zero Trust dashboard → **Networks → Tunnels → Create a tunnel**.
+2. Choose **Cloudflared**, and name it `junipernine2`. (One tunnel can serve all the home apps, each with its own hostname.)
+3. Cloudflare shows an install command for Debian/Ubuntu containing a long token. **Copy only the token** (the string after `--token`), and keep it private.
+4. Under **Public hostnames**, add:
+   - Subdomain: `domesticity`, Domain: `junipernine.com`
+   - Service type: `HTTP`, URL: `127.0.0.1:8095`
+
+   The URL is relative to the server, because cloudflared runs there.
+
+## 3. Install cloudflared on the server with the token
+
+On the server, install cloudflared using Cloudflare's current Ubuntu instructions (their apt repository), then:
 
 ```sh
 cloudflared --version
-```
-
-## 3. Create the tunnel
-
-On the server:
-
-```sh
-cloudflared tunnel login                  # opens a browser; pick junipernine.com
-cloudflared tunnel create domesticity     # prints a tunnel UUID and writes a credentials JSON
-cloudflared tunnel route dns domesticity domesticity.junipernine.com
-```
-
-Copy the config and fill in the UUID from the previous step (it appears in both the config and the credentials filename):
-
-```sh
-sudo mkdir -p /etc/cloudflared
-sudo cp ~/domesticity/web/deploy/cloudflared-config.yml /etc/cloudflared/config.yml
-sudo sed -i 's/REPLACE-WITH-TUNNEL-UUID/<your-uuid>/g' /etc/cloudflared/config.yml
-sudo mv ~/.cloudflared/<your-uuid>.json /etc/cloudflared/
-sudo chmod 600 /etc/cloudflared/<your-uuid>.json
-```
-
-Install it as a service and start it:
-
-```sh
-sudo cloudflared service install
+sudo cloudflared service install <paste-the-token-here>
 sudo systemctl enable --now cloudflared
 sudo systemctl status cloudflared --no-pager
 ```
+
+The tunnel should show as **Healthy** back in the dashboard within a minute.
 
 At this point `https://domesticity.junipernine.com` answers, but **anyone on the internet can reach it**. Do step 4 before you use it.
 
@@ -101,8 +93,9 @@ Open `https://domesticity.junipernine.com` in Safari, sign in with the emailed c
 
 - Logs: `journalctl -u domesticity-web -n 100`, and `journalctl -u cloudflared -n 100`.
 - Restart: `sudo systemctl restart domesticity-web`.
-- Update: `git pull` in `~/domesticity`, then re-run `install.sh`.
+- Update: `cd ~/Domesticity && git pull origin master`, then re-run `sudo ./web/deploy/install.sh`.
 - Stop the public route without stopping the app: `sudo systemctl stop cloudflared`.
+- Routes and hostnames are changed in the dashboard (Networks → Tunnels → junipernine2), not on the server.
 
 ## What this does not do yet
 

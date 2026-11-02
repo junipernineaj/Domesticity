@@ -1,6 +1,6 @@
 # ADR-0008: Host on junipernine2 behind a Cloudflare Tunnel, with Cloudflare Access in front
 
-Status: Accepted (2 Nov 2026). Set up on the server by Tony.
+Status: Accepted (2 Nov 2026). Amended 2 Nov 2026: the tunnel is created in the Cloudflare dashboard and run with a token, so the server needs no browser (it is headless). Set up by Tony.
 Date: 2026-11-02
 
 ## Context
@@ -12,8 +12,8 @@ The main risk is exposing a home server to the internet. The GUARDRAILS say no i
 ## Decision
 
 1. **App listens on loopback only.** `HOST=127.0.0.1`, port 8095. Nothing on the LAN can reach it directly.
-2. **cloudflared runs on the same host** as a system service. It makes an outbound connection to Cloudflare, so the router needs no port forwarding.
-3. **One hostname per app**, routed by the tunnel's ingress rules. Domesticity uses `domesticity.junipernine.com`. Any other hostname gets a 404.
+2. **cloudflared runs on the same host** as a system service. It makes an outbound connection to Cloudflare, so the router needs no port forwarding. The tunnel is **remotely managed**: created in the Cloudflare dashboard and run with `cloudflared service install <token>`. There is no local config file and no credentials file on the server, and no browser login is needed on the headless server.
+3. **One hostname per app**, set as a public hostname on the tunnel in the dashboard. Domesticity uses `domesticity.junipernine.com` → `http://127.0.0.1:8095`. Anything else gets a 404.
 4. **Cloudflare Access** sits in front of each hostname, with a policy that allows only Tony's email, using a one-time PIN. This is the only login until the app has its own (ADR-0005).
 5. **The app runs as a system user** (`domesticity`), with systemd hardening (no write access, no home directory, restricted address families).
 6. **Deployment is by script** (`web/deploy/install.sh`), run by hand on the server. It runs the tests before it replaces the running copy.
@@ -33,7 +33,7 @@ The main risk is exposing a home server to the internet. The GUARDRAILS say no i
 
 ## Consequences
 
-- The tunnel credentials JSON and the Access policy are the security boundary. The credentials file is mode 600 under `/etc/cloudflared`, and must not be committed (GUARDRAILS).
+- The tunnel token and the Access policy are the security boundary. The token is passed on the install command and is stored in the cloudflared service unit, which only root can read. It must not be committed or pasted into chat (GUARDRAILS). Rotate it in the dashboard if it leaks.
 - Access sign-in uses email codes, so access depends on the email account. Keep that account secured.
 - Restarting cloudflared or the app takes the site down briefly. Acceptable for one household.
 - Claude does not change Cloudflare, DNS or the tunnel without an explicit yes in chat (GUARDRAILS). Those steps are run by Tony.
