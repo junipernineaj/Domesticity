@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.13, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before)
+Status: Draft v0.14, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before. v0.14: calendar view, proposed)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -157,6 +157,17 @@ Not built. Recorded from the design review of 2 Nov 2026. Each part needs an ADR
   Each holiday has a target date or range and a note.
   - Status has two steps: Planned, then Booked. A holiday is outstanding until it is Booked.
   - Holidays appear on the Outstanding dashboard. This changes the rule in 6.9 that issues stay off it, so ADR-0009 needs amending.
+
+### 6.12 Calendar view (proposed)
+Not built. Recorded from Tony's request on 2 Nov 2026.
+
+- A calendar showing each day of the year, coloured by how much is due that day. Busy days stand out, and completely free days are easy to see.
+- Each day shows the items due on it, and selecting a day lists them.
+- **Free days** are days with nothing due. The main use is finding free weekends for friends and guests.
+- The calendar needs the future due dates of every routine and renewal. These are projected from the schedule and last completion, using the same rules as section 5. Projections shift when a routine is done early or late, so the calendar is always a forecast, not a fixed plan.
+- Load colours are a proposal: none (free), light, busy, heavy. The thresholds are not yet set.
+- Snags are not on the calendar. They have no date.
+- Whether booked holidays count as busy, or as days away, is not yet decided.
 
 ### 6.5 Household (People)
 - Add, rename, recolour and delete people.
