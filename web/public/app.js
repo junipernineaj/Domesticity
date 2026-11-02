@@ -188,6 +188,7 @@ function calendarMonth({ year, month, weeks }, cal) {
       class: `cal-day load-${loadLevel(count)}`,
       href: `#/calendar/${date}`,
       'aria-label': `${formatDay(date)}, ${count} ${count === 1 ? 'task' : 'tasks'}`,
+      onclick: (e) => { e.preventDefault(); goTo(`#/calendar/${date}`); },
     }, String(Number(date.slice(8))));
   });
   return el('section', { class: 'group' },
@@ -196,7 +197,7 @@ function calendarMonth({ year, month, weeks }, cal) {
   );
 }
 
-function calendarPage() {
+function calendarPage(openDate) {
   const cal = calendarData();
   const legend = el('div', { class: 'cal-legend' },
     ...LOAD_LEVELS.map((l) => el('span', { class: `load-${l.id}` }, l.label)));
@@ -205,6 +206,7 @@ function calendarPage() {
     el('p', { class: 'sub' }, 'Each day is coloured by how many tasks fall due, from a forecast of the next year. Tap a day to see what is on it.'),
     legend,
     ...monthsInRange(state.today).map((m) => calendarMonth(m, cal)),
+    openDate ? calendarSheet(openDate) : null,
   );
 }
 
@@ -215,9 +217,17 @@ function calendarData() {
 }
 
 // One day: what is due on it, and how busy it is. Reached by tapping a day on the calendar.
-function calendarDayPage(date) {
+// The day's summary and tasks, in a panel that slides up over the calendar (ADR-0016).
+// The open day is in the URL, so closing it returns to the plain calendar.
+function closeGoTo(e) {
+  e.preventDefault();
+  goTo('#/calendar');
+}
+
+function calendarSheet(date) {
   const inRange = date >= state.today && date <= addDays(state.today, CALENDAR_DAYS - 1);
-  const items = inRange ? calendarData().get(date) ?? [] : [];
+  if (!inRange) return null;
+  const items = calendarData().get(date) ?? [];
   const level = LOAD_LEVELS.find((l) => l.id === loadLevel(items.length));
   const routines = items.filter((i) => i.kind === 'routine').length;
   const holidays = items.length - routines;
@@ -226,18 +236,20 @@ function calendarDayPage(date) {
     holidays ? `${holidays} booked ${holidays === 1 ? 'holiday' : 'holidays'}` : null,
   ].filter(Boolean).join(' and ');
   return el('div', {},
-    el('a', { class: 'btn', href: '#/calendar' }, '← Back to calendar'),
-    el('h1', { style: 'margin-top: 12px' }, formatDay(date)),
-    el('p', { class: 'sub' }, !inRange
-      ? 'This day is outside the calendar range.'
-      : items.length === 0 ? 'A free day. Nothing is due.' : `${counts}. Load: ${level.label.toLowerCase()}.`),
-    inRange && items.length > 0
-      ? el('section', { class: 'group' },
-        el('ul', { class: 'items' }, ...items.map((i) => el('li', {},
+    el('a', { class: 'cal-scrim', href: '#/calendar', 'aria-label': 'Close', onclick: closeGoTo }),
+    el('section', { class: 'cal-sheet', role: 'dialog', 'aria-label': formatDay(date) },
+      el('header', {},
+        el('h2', {}, formatDay(date)),
+        el('a', { class: 'btn', href: '#/calendar', onclick: closeGoTo }, 'Close'),
+      ),
+      el('p', { class: 'sub' }, items.length === 0 ? 'A free day. Nothing is due.' : `${counts}. Load: ${level.label.toLowerCase()}.`),
+      items.length > 0
+        ? el('ul', { class: 'items' }, ...items.map((i) => el('li', {},
           el('div', {}, el('div', { class: 'title' }, i.title)),
           el('div', { class: 'meta' }, i.kind === 'holiday' ? 'Booked holiday' : 'Routine'),
-        ))))
-      : null,
+        )))
+        : null,
+    ),
   );
 }
 
@@ -923,11 +935,25 @@ function activityView() {
 
 // ---- routing ----------------------------------------------------------------------------
 
+// Moves to another calendar view without the browser's own hash jump, which scrolls to the top.
+function goTo(hash) {
+  history.pushState(null, '', hash);
+  render();
+}
+let lastPage = null;
+// The last scroll position seen while on the calendar. Read by render() when a day opens or closes.
+let calendarScrollY = 0;
+window.addEventListener('scroll', () => {
+  if (lastPage === 'calendar') calendarScrollY = window.scrollY;
+});
 function render() {
   const [page = 'status', arg] = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  // Opening or closing a calendar day keeps the scroll position. Other page changes start at the top.
+  const keepScroll = page === 'calendar' && lastPage === 'calendar';
+  const scrollBefore = calendarScrollY;
   let content;
   if (page === 'outstanding') content = outstandingPage(arg);
-  else if (page === 'calendar') content = arg ? calendarDayPage(arg) : calendarPage();
+  else if (page === 'calendar') content = calendarPage(arg);
   else if (page === 'holidays') content = holidayPage();
   else if (page === 'spaces') content = spacesPage();
   else if (page === 'issues') content = issuesPage(arg);
@@ -941,7 +967,8 @@ function render() {
   }
   if (!state.loaded) content = el('div', { class: 'empty' }, state.error ?? 'Loading…');
   document.getElementById('app').replaceChildren(content);
-  window.scrollTo(0, 0);
+  window.scrollTo(0, keepScroll ? scrollBefore : 0);
+  lastPage = page;
   updateSaveStatus();
   sync();
 }
@@ -1037,6 +1064,7 @@ function updateSaveStatus() {
 }
 
 window.addEventListener('hashchange', render);
+window.addEventListener('popstate', render);
 
 // What the server last sent, per collection. Compared with fresh data to see if anything changed
 // elsewhere. Compared with the server's own output, so the page's small differences don't count.
