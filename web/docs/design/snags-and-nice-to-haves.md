@@ -101,8 +101,8 @@ Recorded 2 Nov 2026, from Tony's request. Not built.
 
 - Booked holidays count as busy days.
 - The calendar looks a year ahead, possibly 18 months.
-- Load is the number of tasks due on a day: green for 0 (a free day), amber for 1 to 2, red for 3 to 4.
+- Load is the number of tasks due on a day: green for 0 (a free day), amber for 1 to 2, red for 3 to 4, and a deeper red for 5 or more.
 
 ### Open questions
 
-- [ ] What colour is a day with 5 or more tasks?
+None open.
