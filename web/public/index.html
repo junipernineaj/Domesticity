@@ -68,6 +68,10 @@
     .things { padding: 12px 14px; }
     .things form { margin: 0; }
     .things input[type="text"] { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; flex: 1; min-width: 0; }
+    button.info { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--accent); background: var(--card); color: var(--accent); font: 600 .8rem/1 Georgia, serif; cursor: pointer; padding: 0; vertical-align: middle; }
+    button.info[aria-expanded="true"] { background: var(--accent); color: #fff; }
+    .detail { background: var(--bg); border-left: 3px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin: 6px 0; font-size: .92rem; white-space: pre-line; }
+    form.editor textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
   </style>
 </head>
 <body>

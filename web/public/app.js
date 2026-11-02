@@ -90,11 +90,26 @@ function dueText(days) {
   return { text: `Due in ${days} days`, cls: 'due' };
 }
 
+// A routine's description sits behind an "i" button, so the list stays short.
+// Tapping it (or clicking, on a desktop) shows or hides the description.
+function titleWithInfo(title, description) {
+  if (!description) return [el('div', { class: 'title' }, title)];
+  const panel = el('div', { class: 'detail', hidden: true }, description);
+  const button = el('button', {
+    class: 'info', type: 'button', 'aria-label': `About ${title}`, 'aria-expanded': 'false',
+  }, 'i');
+  button.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    button.setAttribute('aria-expanded', String(!panel.hidden));
+  });
+  return [el('div', { class: 'title' }, title, ' ', button), panel];
+}
+
 function itemRow(item) {
   const { text, cls } = dueText(item.days);
   return el('li', {},
     el('div', {},
-      el('div', { class: 'title' }, item.routine.title),
+      ...titleWithInfo(item.routine.title, item.routine.description),
       el('div', { class: 'meta' },
         item.routine.places.length ? item.routine.places.join(', ') : 'Anywhere',
         item.routine.tags.length ? ` · ${item.routine.tags.join(', ')}` : '',
@@ -235,7 +250,7 @@ function configureList() {
           el('ul', { class: 'items' }, ...state.routines.map((r) =>
             el('li', {},
               el('div', {},
-                el('div', { class: 'title' }, r.title, r.paused ? ' (paused)' : ''),
+                ...titleWithInfo(`${r.title}${r.paused ? ' (paused)' : ''}`, r.description),
                 el('div', { class: 'meta' },
                   scheduleText(r),
                   ' · ',
@@ -271,6 +286,7 @@ function saveRoutine(existing, f, errorEl) {
     dayOfMonth: Math.min(31, Math.max(1, Number(f.dayOfMonth.value) || 1)),
     startDate: existing?.startDate ?? state.today,
     paused: f.paused.checked,
+    description: f.description.value.trim() || undefined,
     places: splitList(f.places.value),
     tags: splitList(f.tags.value),
     targetType: f.targetType.value.trim() || undefined,
@@ -297,6 +313,7 @@ function routineEditor(id) {
 
   const f = {
     title: el('input', { type: 'text', maxlength: '80', required: true }),
+    description: el('textarea', { rows: '4', maxlength: '500' }),
     places: el('input', { type: 'text' }),
     tags: el('input', { type: 'text' }),
     kind: el('select', {}, ...KINDS.map(([value, label]) => el('option', { value }, label))),
@@ -305,6 +322,7 @@ function routineEditor(id) {
     paused: el('input', { type: 'checkbox' }),
   };
   f.title.value = r.title;
+  f.description.value = r.description ?? '';
   f.places.value = r.places.join(', ');
   f.tags.value = r.tags.join(', ');
   f.kind.value = r.kind;
@@ -328,6 +346,7 @@ function routineEditor(id) {
   },
     el('h1', {}, existing ? 'Edit routine' : 'New routine'),
     add('Name', f.title),
+    add('What needs doing (optional)', f.description, 'Steps or notes for whoever does it. Shown when the i button is tapped.'),
     add('Places (comma-separated, e.g. Kitchen, Hall)', f.places, 'Leave empty if it isn\'t about a place.'),
     add('Tags (comma-separated, e.g. cleaning, laundry)', f.tags),
     add('Repeat for each of these things in your spaces (optional, e.g. Toilet)', f.targetType, 'Each toilet on the Spaces page becomes its own task, with its space named.'),
