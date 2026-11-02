@@ -1,0 +1,30 @@
+# systemd unit for Domesticity web. Installed by install.sh.
+# Listens on loopback only; cloudflared on the same host forwards to it.
+[Unit]
+Description=Domesticity web (Phase 0)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=domesticity
+Group=domesticity
+WorkingDirectory=/opt/domesticity/web
+# Check the path with: command -v node  (adjust if it is not /usr/bin/node)
+ExecStart=/usr/bin/node /opt/domesticity/web/server.js
+Environment=PORT=8095
+Environment=HOST=127.0.0.1
+Restart=on-failure
+RestartSec=5
+
+# Hardening: the app only reads its own files and writes nothing.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
