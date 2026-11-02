@@ -24,15 +24,20 @@ if [[ ! -f "$SRC/server.js" || ! -f "$SRC/deploy/domesticity-web.service" ]]; th
   exit 1
 fi
 
-if ! command -v node >/dev/null; then
-  echo "Node.js is not installed. Install Node 22 or later first." >&2
+# Node 22 is required. The server's system Node can be older (and other apps may depend
+# on it), so the default is a separate Node 22 under /opt/node22 that only this service uses.
+# Override with NODE_BIN=/path/to/node if you keep it somewhere else.
+NODE_BIN="${NODE_BIN:-/opt/node22/bin/node}"
+if [[ ! -x "$NODE_BIN" ]]; then
+  echo "Node 22 not found at $NODE_BIN. Install it first (see web/deploy/README.md, step 0)." >&2
   exit 1
 fi
-NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+NODE_MAJOR=$("$NODE_BIN" -p 'process.versions.node.split(".")[0]')
 if (( NODE_MAJOR < 22 )); then
-  echo "Node $NODE_MAJOR found; Node 22 or later is required." >&2
+  echo "$NODE_BIN is Node $NODE_MAJOR; Node 22 or later is required." >&2
   exit 1
 fi
+echo "Using $NODE_BIN (Node $("$NODE_BIN" -v))."
 
 # Refuse to take over a port something else is already using.
 if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null && ! systemctl is-active --quiet domesticity-web; then
@@ -53,13 +58,15 @@ chown -R root:root "$APP_DIR/web"
 chmod -R a+rX "$APP_DIR/web"
 
 echo "Running tests on the installed copy..."
-(cd "$APP_DIR/web" && node --test test/*.test.js >/tmp/domesticity-test.log 2>&1) || {
+(cd "$APP_DIR/web" && "$NODE_BIN" --test test/*.test.js >/tmp/domesticity-test.log 2>&1) || {
   echo "Tests failed; not deploying. See /tmp/domesticity-test.log" >&2
   exit 1
 }
 rm -f /tmp/domesticity-test.log
 
+# Install the unit, pointing it at the Node we just checked.
 install -m 0644 "$APP_DIR/web/deploy/domesticity-web.service" /etc/systemd/system/domesticity-web.service
+sed -i "s|^ExecStart=.*|ExecStart=$NODE_BIN $APP_DIR/web/server.js|" /etc/systemd/system/domesticity-web.service
 systemctl daemon-reload
 systemctl enable domesticity-web >/dev/null
 systemctl restart domesticity-web
