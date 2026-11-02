@@ -1,0 +1,71 @@
+# Snags and nice to haves: design record
+
+2 Nov 2026 · Tony
+
+Living copy: https://claude.ai/artifact/SAf5xibeXKofHht3sEj7yf
+
+This record keeps the reasoning behind the snag and nice-to-have design, so it can be revisited later. It covers what was built, the options considered, and what is still open.
+
+## How we got here
+
+The web app began as a browser copy of the iOS Domesticity app, keeping its scheduling rules. Over several sessions it gained a Status page, an Outstanding dashboard with views by room, day, overdue, category, person and cadence, and a Configure area for routines.
+
+Routines alone did not describe the household's work. Some jobs repeat on a schedule, but others are one-off problems or ideas for later. That gap is what led to snags and nice to haves.
+
+Routines then gained an optional description, shown behind an info button. Storage was discussed next, and ADR-0010 chose a SQLite file over PostgreSQL. Storage is not built yet.
+
+## What is built now
+
+Snags and nice to haves are kept as one open list, separate from routines (ADR-0009). Each item has a title, a kind, an optional space, the day it was added, and a done day. An item stays open until it has a done day.
+
+The Status page shows the open count for each kind, with the first few titles. The Snags page adds items, groups them by space, and offers Done and Remove, with a filter for each kind.
+
+Items have no description, severity, cost or priority yet. They are held in memory only, so they reset when the service restarts.
+
+## Why they are separate from routines
+
+A routine comes back on a schedule and is ticked off each time. A snag stays wrong until someone fixes it, so it has no cycle. A nice to have is an idea that may never be done.
+
+If they were routines, a snag would show as due on some invented interval, and a one-off fix would have a fake repeat. Items that were never meant to be on time would also pull down the on-time rate.
+
+## Snag options
+
+Three ways a snag can move on were considered. They build on each other, so the simplest could be extended later without rework.
+
+| Option | How a snag moves on | What it adds | Trade-off |
+| --- | --- | --- | --- |
+| Open or done (built) | Open, then done | Simple and clear | Cannot show that a fix is planned or waiting on a part |
+| Planned | Reported, then planned with a date, then fixed | Shows the backlog of fixes; a planned snag can become a one-off task with a due date | More states to keep right |
+| Severity and age | Any of the above, plus a level (cosmetic, annoying, needs fixing soon, safety) and days open | Shows which problems matter most and which have been open too long | The levels are a judgement call and need agreeing |
+
+## Nice to have options
+
+Three ways of ranking an idea were considered. Each one adds a little more to keep up to date.
+
+| Option | What it records | Trade-off |
+| --- | --- | --- |
+| Simple list (built) | Items in the order they were added | Nothing to maintain, but no sense of which ideas matter most |
+| Priority | A rough rank such as someday, this year, or next | Quick to set and easy to sort |
+| Cost and effort | An estimated cost, a rough effort, and optionally a supplier or quote | Useful for planning and budgets, but more to keep current, and it overlaps with the finance planning |
+
+## Other ideas raised
+
+- **Photos:** attach a picture of the problem or the idea. This could tie into the photo library project on junipernine2.
+- **Recurring problems:** flag a snag that keeps coming back, such as the same tap or the same damp patch, so it is not fixed and forgotten.
+- **Owners:** assign a snag to you or to a contractor, linking to the people already in the app.
+- **Notes and history:** a simple log of what was tried and when, as a comment thread on the item.
+
+## Leaning towards
+
+For the first version, snags get the planned status and a severity level. Nice to haves get a simple priority. Photos, costs and the recurring-problem flag can wait until the list has been used for a few months.
+
+This is a lean, not a decision. It is recorded here so the reasoning can be tested against real use.
+
+## Open questions
+
+- [ ] Do snags need a deadline, or only a severity?
+- [ ] Do nice to haves need a cost, or is a priority enough?
+- [ ] Should a snag be able to become a one-off task with a due date?
+- [ ] Who handles a snag: you, a contractor, or whoever is home?
+- [ ] Is the severity scale right: cosmetic, annoying, needs fixing soon, safety?
+- [ ] Do you want a reopen action, or is Done final?
