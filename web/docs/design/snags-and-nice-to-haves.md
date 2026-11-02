@@ -62,7 +62,7 @@ Recorded 2 Nov 2026, after review with Tony.
 - Snags have no deadline.
 - Snags have two separate fields. Severity is Cosmetic, Needs fixing soon, or Unsafe. RAG is Red, Amber, or Green, and it is urgency: how soon the item needs attention. They are set independently. They usually correlate, but a snag can be Unsafe and Amber.
 - Every snag is assigned to Household or External (a contractor).
-- Nice to haves are not RAG rated. They are scored with two sliders, Cost and Effort, each from 1 (low) to 5 (high). The score is the average of the two. Nice to haves list the highest score first.
+- Nice to haves are not RAG rated. They are scored with two sliders, Cost and Effort, each from 1 (low) to 5 (high). The score is the average of the two. Nice to haves list the lowest score first, so the cheapest and easiest ideas can be picked off. This replaces the earlier note that the highest score should come first.
 - Snags and nice to haves can be reopened, because a fix may not work.
 - The planned status with a date is not wanted, since snags have no deadline. The one-off task idea goes with it.
 - An activity log shows every change, newest first. It records adding an item or routine, completing or skipping a routine, editing, deleting, and opening or reopening a snag or nice to have. Entries are never removed, and the log is kept forever.
