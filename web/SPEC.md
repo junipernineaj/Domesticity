@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.3, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009)
+Status: Draft v0.4, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -78,7 +78,8 @@ These rules are the definition of correct behaviour. They match the iOS app. Eve
 - List of all routines. Grouping uses the same lenses as the Outstanding dashboard (section 6.8), not a fixed room hierarchy.
 - Create, edit, pause, resume, and delete a routine.
 - Deleting a routine deletes its completions (with a confirmation). Completions are never deleted otherwise (see GUARDRAILS).
-- Editor fields: title, icon, tags (existing names offered first), places (multiple), schedule kind and parameters with preset buttons, reminder on/off and time, assignee, notes, pause toggle.
+- Editor fields: title, icon, what needs doing (a description, see below), tags (existing names offered first), places (multiple), schedule kind and parameters with preset buttons, reminder on/off and time, assignee, notes, pause toggle.
+- **Description** (optional, up to 500 characters): what needs doing, in the words the person doing it will read. It is shown behind an "i" button on the Outstanding dashboard and the Configure list, so the lists stay short. Tapping the button shows or hides it. Only routines have a description in v1; snags and nice to haves do not (ADR-0009).
 
 ### 6.3 Starter suggestions
 - About 30 templates grouped by room, as in the iOS app's `Templates.swift`.
@@ -115,6 +116,7 @@ Routines come back on a schedule. Problems and ideas don't: they stay open until
 - **Status page:** shows the open count for snags and for nice to haves, with the first few titles of each.
 - **Issues page:** lists open issues grouped by space (oldest first), with a form to add one. Filter to snags or nice to haves.
 - Issues are not routines. They don't appear in Outstanding, don't send reminders, and don't affect the on-time rate.
+- Issues have no description in v1. Their form is being reconsidered.
 - Deleting a space keeps its issues. They move to "Nowhere in particular".
 
 The logic is in `web/src/issues.js`, tested in `web/test/issues.test.js`.

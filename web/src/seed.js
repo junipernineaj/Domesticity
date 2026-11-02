@@ -9,15 +9,15 @@ import { addDays } from './dates.js';
 export function seed(today) {
   const persons = [{ id: 'tony', name: 'Tony' }];
 
-  /** @type {Array<{id: string, title: string, kind: 'interval'|'weekly'|'monthly', intervalDays?: number, dayOfMonth?: number, tags: string[], places: string[], lastDoneAgo: number, assigneeId?: string}>} */
+  /** @type {Array<{id: string, title: string, kind: 'interval'|'weekly'|'monthly', intervalDays?: number, dayOfMonth?: number, tags: string[], places: string[], lastDoneAgo: number, assigneeId?: string, description?: string}>} */
   const spec = [
     { id: 'sheets', title: 'Change the bed sheets', kind: 'interval', intervalDays: 7, tags: ['laundry', 'bedding'], places: ['Bedroom'], lastDoneAgo: 5 },
     { id: 'pillows', title: 'Wash pillows & duvet', kind: 'interval', intervalDays: 90, tags: ['laundry', 'bedding'], places: ['Bedroom'], lastDoneAgo: 60 },
     { id: 'mattress', title: 'Rotate the mattress', kind: 'interval', intervalDays: 90, tags: ['bedding', 'maintenance'], places: ['Bedroom'], lastDoneAgo: 100 },
     { id: 'fridge', title: 'Clean out the fridge', kind: 'interval', intervalDays: 30, tags: ['kitchen', 'food-safety'], places: ['Kitchen'], lastDoneAgo: 20 },
-    { id: 'oven', title: 'Clean the oven', kind: 'interval', intervalDays: 60, tags: ['kitchen', 'cleaning'], places: ['Kitchen'], lastDoneAgo: 40 },
+    { id: 'oven', title: 'Clean the oven', kind: 'interval', intervalDays: 60, tags: ['kitchen', 'cleaning'], places: ['Kitchen'], lastDoneAgo: 40, description: 'Take out the shelves and runners. Spray the oven walls with oven cleaner, leave for 20 minutes, then wipe clean with a damp cloth. Put the shelves back in.' },
     { id: 'microwave', title: 'Clean the microwave', kind: 'interval', intervalDays: 14, tags: ['kitchen', 'cleaning'], places: ['Kitchen'], lastDoneAgo: 14 },
-    { id: 'hob', title: 'Wipe down the hob', kind: 'interval', intervalDays: 3, tags: ['kitchen', 'cleaning'], places: ['Kitchen'], lastDoneAgo: 2 },
+    { id: 'hob', title: 'Wipe down the hob', kind: 'interval', intervalDays: 3, tags: ['kitchen', 'cleaning'], places: ['Kitchen'], lastDoneAgo: 2, description: 'Wipe with a damp cloth once it has cooled. Use hob cleaner for any greasy patches.' },
     { id: 'kettle', title: 'Descale the kettle', kind: 'interval', intervalDays: 30, tags: ['kitchen', 'appliances'], places: ['Kitchen'], lastDoneAgo: 10 },
     { id: 'freezer', title: 'Defrost the freezer', kind: 'interval', intervalDays: 180, tags: ['kitchen', 'food-safety', 'appliances'], places: ['Kitchen'], lastDoneAgo: 150 },
     { id: 'bins', title: 'Take the bins out', kind: 'interval', intervalDays: 7, tags: ['routine', 'outdoors'], places: ['Kitchen'], lastDoneAgo: 6, assigneeId: 'tony' },
@@ -31,7 +31,7 @@ export function seed(today) {
     { id: 'water', title: 'Water the plants', kind: 'interval', intervalDays: 3, tags: ['garden', 'plants'], places: ['Garden'], lastDoneAgo: 1 },
     { id: 'feed', title: 'Feed the plants', kind: 'interval', intervalDays: 30, tags: ['garden', 'plants'], places: ['Garden'], lastDoneAgo: 25 },
     { id: 'mow', title: 'Mow the lawn', kind: 'interval', intervalDays: 14, tags: ['garden', 'outdoors'], places: ['Garden'], lastDoneAgo: 16 },
-    { id: 'washer', title: 'Clean the washing machine', kind: 'interval', intervalDays: 30, tags: ['laundry', 'appliances'], places: ['Laundry'], lastDoneAgo: 28 },
+    { id: 'washer', title: 'Clean the washing machine', kind: 'interval', intervalDays: 30, tags: ['laundry', 'appliances'], places: ['Laundry'], lastDoneAgo: 28, description: 'Run an empty hot wash with a cleaning tablet. Wipe the door seal and check the drawer for residue.' },
     { id: 'lint', title: 'Empty the tumble dryer lint', kind: 'interval', intervalDays: 3, tags: ['laundry', 'appliances'], places: ['Laundry'], lastDoneAgo: 3 },
   ];
 
