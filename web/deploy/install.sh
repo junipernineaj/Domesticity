@@ -53,7 +53,7 @@ install -d -o root -g root -m 0755 "$APP_DIR"
 if ! command -v rsync >/dev/null; then
   apt-get install -y rsync
 fi
-rsync -a --delete --exclude node_modules "$SRC"/ "$APP_DIR/web/"
+rsync -a --delete --exclude node_modules --exclude data "$SRC"/ "$APP_DIR/web/"
 chown -R root:root "$APP_DIR/web"
 chmod -R a+rX "$APP_DIR/web"
 

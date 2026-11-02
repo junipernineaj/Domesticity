@@ -1,7 +1,7 @@
 # systemd unit for Domesticity web. Installed by install.sh.
 # Listens on loopback only; cloudflared on the same host forwards to it.
 [Unit]
-Description=Domesticity web (Phase 0)
+Description=Domesticity web (Phase 1: stored data)
 After=network-online.target
 Wants=network-online.target
 
@@ -14,10 +14,13 @@ WorkingDirectory=/opt/domesticity/web
 ExecStart=/opt/node22/bin/node /opt/domesticity/web/server.js
 Environment=PORT=8095
 Environment=HOST=127.0.0.1
+# The database lives in /var/lib/domesticity, which systemd creates and owns for this service (ADR-0011).
+Environment=DB_PATH=/var/lib/domesticity/domesticity.db
+StateDirectory=domesticity
 Restart=on-failure
 RestartSec=5
 
-# Hardening: the app only reads its own files and writes nothing.
+# Hardening: the app reads its own files and writes only its database, in StateDirectory.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

@@ -113,4 +113,5 @@ Open `https://domesticity.junipernine.com` in Safari, sign in with the emailed c
 ## What this does not do yet
 
 - The app has no login of its own. Cloudflare Access is the only gate, so keep the Access policy in place (ADR-0005 covers the app-level login to come).
-- Data is still in memory, so restarting the service resets it (Phase 0).
+- Data is stored in `/var/lib/domesticity/domesticity.db` (ADR-0011). Before each schema change, a copy is saved beside it as `domesticity.db.<time>.bak`.
+- Automatic nightly backup to Juniper13 is not set up yet (ADR-0010). Until it is, copy the database file by hand while the service is stopped, or ask for the backup job to be built.
