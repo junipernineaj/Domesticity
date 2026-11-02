@@ -41,5 +41,5 @@ test('a routine with tags, places and history survives the renewals migration', 
 
 test('a fresh database gets every migration', () => {
   const db = openDatabase(':memory:');
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM schema_migrations').get().n, 4);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM schema_migrations').get().n, 5);
 });

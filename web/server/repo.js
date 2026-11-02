@@ -5,8 +5,17 @@ import { todayIn } from '../src/dates.js';
 import { ASSIGNEES, RAGS, SEVERITIES } from '../src/issues-rules.js';
 import { randomUUID } from 'node:crypto';
 import { sniffImage } from './images.js';
+import { daysInMonth, parts } from '../src/dates.js';
 
-export const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// '2027-04-26' reads as '26 April 2027' in the activity log.
+function formatDay(date) {
+  const { year, month, day } = parts(date);
+  return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+}
+
+export const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions', 'holidays'];
 const MAX_OPS = 500;
 
 export class ValidationError extends Error {}
@@ -128,6 +137,25 @@ const VALIDATORS = {
     };
   },
 
+  holidays: (item) => {
+    const row = {
+      id: idOf(item.id, 'holiday id'),
+      name: str(item.name, 'name', 60),
+      target_month: intOrNull(item.targetMonth, 1, 12, 'month'),
+      target_day: intOrNull(item.targetDay, 1, 31, 'day'),
+      note: str(item.note, 'note', 500, { optional: true }),
+      booked_for: dateOrNull(item.bookedFor, 'booked date'),
+    };
+    if (row.target_month == null || row.target_day == null) fail('a holiday needs a month and a day');
+    if (row.target_day > daysInMonth(2028, row.target_month)) fail(`${row.name}: that day is not in that month`);
+    // A booking must be for an occurrence of this holiday (ADR-0015).
+    if (row.booked_for) {
+      const { month, day } = parts(row.booked_for);
+      if (month !== row.target_month || day !== row.target_day) fail('a holiday can only be booked for its own day');
+    }
+    return { row };
+  },
+
   issues: (item) => {
     const kind = oneOf(item.kind, ['snag', 'nice'], 'kind');
     const isSnag = kind === 'snag';
@@ -176,6 +204,7 @@ const COLUMN_NAMES = {
   persons: ['id', 'name'], spaces: ['id', 'name'], things: ['id', 'space_id', 'type'],
   routines: ['id', 'title', 'kind', 'interval_days', 'day_of_month', 'weekdays', 'start_date', 'paused', 'target_type', 'assignee_id', 'description', 'every_months', 'lead_days'],
   issues: ['id', 'kind', 'title', 'space_id', 'added_on', 'done_on', 'severity', 'rag', 'assignee', 'cost', 'effort'],
+  holidays: ['id', 'name', 'target_month', 'target_day', 'note', 'booked_for'],
   completions: ['id', 'routine_id', 'thing_id', 'done_on', 'due_on', 'skipped', 'person_id'],
 };
 
@@ -208,6 +237,7 @@ function describeChange(db, p) {
       case 'spaces': return `Deleted space: ${before.name}`;
       case 'things': return `Removed ${before.type} from ${spaceName(db, before.space_id) ?? 'a space'}`;
       case 'persons': return `Removed person: ${before.name}`;
+      case 'holidays': return `Removed holiday: ${before.name}`;
       default: return null; // completions go with their routine, which is logged
     }
   }
@@ -220,6 +250,13 @@ function describeChange(db, p) {
     return `${row.skipped ? 'Skipped' : 'Did'} ${title}`;
   }
   if (table === 'persons') return before ? `Changed person: ${row.name}` : `Added person: ${row.name}`;
+  if (table === 'holidays') {
+    if (!before) return `Added holiday: ${row.name}`;
+    if (before.booked_for == null && row.booked_for != null) return `Booked holiday: ${row.name}, ${formatDay(row.booked_for)}`;
+    if (before.booked_for != null && row.booked_for == null) return `Unbooked holiday: ${row.name}`;
+    const changed = COLUMN_NAMES.holidays.some((c) => before[c] !== row[c]);
+    return changed ? `Edited holiday: ${row.name}` : null;
+  }
   if (table === 'spaces') return before ? `Changed space: ${row.name}` : `Added space: ${row.name}`;
   if (table === 'things') {
     const where = spaceName(db, row.space_id) ?? 'a space';
@@ -319,6 +356,10 @@ export function loadAll(db) {
       tags: tagsBy.get(r.id) ?? [],
       places: placesBy.get(r.id) ?? [],
     })),
+    holidays: db.prepare(
+      `SELECT id, name, target_month AS targetMonth, target_day AS targetDay, note, booked_for AS bookedFor
+       FROM holidays ORDER BY rowid`,
+    ).all(),
     issues: db.prepare(
       `SELECT id, kind, title, space_id AS spaceId, added_on AS addedOn, done_on AS doneOn,
               severity, rag, assignee, cost, effort

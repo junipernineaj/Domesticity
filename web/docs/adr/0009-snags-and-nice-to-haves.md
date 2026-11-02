@@ -1,6 +1,6 @@
 # ADR-0009: Snags and nice-to-haves are an open list, separate from routines
 
-Status: Accepted. Amended by ADR-0012: reopen is allowed, and snags and nice to haves carry severity, urgency, assignee or scores.
+Status: Accepted. Amended by ADR-0012: reopen is allowed, and snags and nice to haves carry severity, urgency, assignee or scores. Amended by ADR-0015: holiday plans are a separate collection and show on Outstanding while planned.
 Date: 2026-11-02
 
 ## Context
