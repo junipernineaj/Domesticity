@@ -55,17 +55,23 @@ Three ways of ranking an idea were considered. Each one adds a little more to ke
 - **Owners:** assign a snag to you or to a contractor, linking to the people already in the app.
 - **Notes and history:** a simple log of what was tried and when, as a comment thread on the item.
 
-## Leaning towards
+## Decisions
 
-For the first version, snags get the planned status and a severity level. Nice to haves get a simple priority. Photos, costs and the recurring-problem flag can wait until the list has been used for a few months.
+Recorded 2 Nov 2026, after review with Tony.
 
-This is a lean, not a decision. It is recorded here so the reasoning can be tested against real use.
+- Snags have no deadline. They have a severity.
+- Severity has three levels: Unsafe, Needs fixing soon, and Cosmetic. These are the two layers of categorisation: the severity level, and the RAG colour that goes with it (Unsafe Red, Needs fixing soon Amber, Cosmetic Green). The RAG colour is used for colour coding and for ordering. This pairing is our reading and needs confirming.
+- Every snag is assigned to Household or External (a contractor).
+- Nice to haves are not RAG rated. They are probably ranked by cost and/or effort.
+- Snags and nice to haves can be reopened, because a fix may not work.
+- The planned status with a date is not wanted, since snags have no deadline. The one-off task idea goes with it.
+
+## Parked idea: family snags
+
+Snags for family members' homes, such as a mother-in-law's kitchen or an aunt's garden. This is recorded only. It needs its own design, including whose home each snag belongs to and who can see it.
 
 ## Open questions
 
-- [ ] Do snags need a deadline, or only a severity?
-- [ ] Do nice to haves need a cost, or is a priority enough?
-- [ ] Should a snag be able to become a one-off task with a due date?
-- [ ] Who handles a snag: you, a contractor, or whoever is home?
-- [ ] Is the severity scale right: cosmetic, annoying, needs fixing soon, safety?
-- [ ] Do you want a reopen action, or is Done final?
+- [ ] Is the pairing right: Unsafe Red, Needs fixing soon Amber, Cosmetic Green?
+- [ ] For nice to haves, does the order come from cost, from effort, or from both?
+- [ ] Should a reopened item keep its full history of closes and reopens?

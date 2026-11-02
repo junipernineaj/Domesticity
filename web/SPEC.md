@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.4, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions)
+Status: Draft v0.5, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -110,16 +110,26 @@ The lenses are pure functions of the outstanding list (`web/src/outstanding.js`)
 Routines come back on a schedule. Problems and ideas don't: they stay open until someone deals with them, so they are kept as a separate list (ADR-0009).
 
 - **Snag:** something wrong or broken, such as "the tap is dripping in the utility room".
-- **Nice to have:** an improvement for later, such as "make curtains to keep the cold out of the lounge".
-- Each issue has a kind, a title, an optional space, the day it was added, and an optional done day. An issue is open until it has a done day.
-- **Done** closes an issue and removes it from the lists. Reopening is not in v1.
-- **Status page:** shows the open count for snags and for nice to haves, with the first few titles of each.
-- **Issues page:** lists open issues grouped by space (oldest first), with a form to add one. Filter to snags or nice to haves.
+- **Nice to have:** an improvement or idea, such as "make curtains to keep the cold out of the lounge". Nice to haves are not RAG rated.
+- Each item has a title, a kind, an optional space, the day it was added, and a done day. An item is open until it has a done day.
+- **Snag severity:** each snag has one of three levels. Each level has a RAG colour, used for colour coding and for ordering:
+  - Unsafe: Red
+  - Needs fixing soon: Amber
+  - Cosmetic: Green
+  Snags are listed Red first, then Amber, then Green. Within a colour, oldest first.
+- **Snags have no deadline.**
+- **Snag assignee:** every snag is either Household or External (a contractor).
+- **Nice to have ranking:** by cost and/or effort. Which of the two drives the order is not yet decided.
+- **Done** closes an item and moves it off the open lists.
+- **Reopen:** a closed snag or nice to have can be reopened, because a fix may not work. Reopening clears the done day. The history of closing and reopening is kept, not overwritten.
+- **Status page:** shows the open count for each kind, with the first few titles.
+- **Issues page:** lists open items grouped by space, with snags ordered by RAG colour. Filter to snags or nice to haves.
 - Issues are not routines. They don't appear in Outstanding, don't send reminders, and don't affect the on-time rate.
-- Issues have no description in v1. Their form is being reconsidered.
 - Deleting a space keeps its issues. They move to "Nowhere in particular".
+- Issues have no description in v1.
+- Not in v1: snags for family members' homes. This idea is recorded in the design record and not designed yet.
 
-The logic is in `web/src/issues.js`, tested in `web/test/issues.test.js`.
+The design reasoning is in `web/docs/design/snags-and-nice-to-haves.md`.
 
 ### 6.5 Household (People)
 - Add, rename, recolour and delete people.
