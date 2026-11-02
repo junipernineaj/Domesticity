@@ -38,7 +38,10 @@ const today = todayIn(TIME_ZONE);
 // Data collections come from GET /api/data. `state` is the working copy. `saved` holds what the
 // server last confirmed, and sync() sends whatever differs.
 const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions'];
-const state = { today, horizonDays: 7, loaded: false, error: null, saveError: null };
+// issueImages: item id -> a version number for the picture URL, set when the picture loads or changes.
+// Pictures are not part of the synced working copy (ADR-0013).
+const state = { today, horizonDays: 7, loaded: false, error: null, saveError: null, issueImages: new Map(), imageError: null };
+const MAX_PHOTO_EDGE = 1600;
 for (const c of COLLECTIONS) state[c] = [];
 let saved = new Map();
 
@@ -489,14 +492,37 @@ function scoreText(issue) {
   return score == null ? 'not scored yet' : `score ${score.toFixed(1)} (cost ${issue.cost}, effort ${issue.effort})`;
 }
 
+function photoUrl(issue) {
+  return `/api/issues/${encodeURIComponent(issue.id)}/image?v=${state.issueImages.get(issue.id)}`;
+}
+
 function issueRow(issue) {
   const isSnag = issue.kind === 'snag';
   const kindLabel = ISSUE_KINDS.find((k) => k.id === issue.kind).label;
   const details = isSnag ? [SEVERITY_LABELS[issue.severity], ASSIGNEE_LABELS[issue.assignee]] : [scoreText(issue)];
+  const hasPhoto = state.issueImages.has(issue.id);
+  const fileInput = el('input', { type: 'file', accept: 'image/*', hidden: true });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    if (file) uploadPhoto(issue, file);
+  });
+
   const actions = issue.doneOn
     ? [el('button', { onclick: () => reopenIssue(issue) }, 'Reopen')]
     : [el('button', { class: 'done', onclick: () => closeIssue(issue) }, 'Done')];
   actions.push(el('button', { onclick: () => removeIssue(issue) }, 'Remove'));
+
+  // Picture controls sit on their own row under the item, so the buttons above still fit a phone.
+  const photoActions = el('div', { class: 'actions photo-actions' },
+    el('button', { onclick: () => fileInput.click() }, hasPhoto ? 'Replace photo' : 'Add photo'),
+    hasPhoto ? el('button', { onclick: () => removePhoto(issue) }, 'Remove photo') : null,
+  );
+  const picture = hasPhoto
+    ? el('a', { class: 'issue-photo', href: photoUrl(issue), target: '_blank', rel: 'noopener' },
+      el('img', { src: photoUrl(issue), alt: `Picture for ${issue.title}`, loading: 'lazy' }))
+    : null;
+  const error = state.imageError?.id === issue.id ? el('div', { class: 'error photo-error' }, state.imageError.text) : null;
 
   return el('li', { class: isSnag && issue.rag ? `urgent-${issue.rag}` : null },
     el('div', {},
@@ -510,7 +536,78 @@ function issueRow(issue) {
       ),
     ),
     el('div', { class: 'actions' }, ...actions),
+    picture,
+    error,
+    photoActions,
+    fileInput,
   );
+}
+
+// Makes a picture small enough to send: longest side at most MAX_PHOTO_EDGE, as JPEG (ADR-0013).
+async function shrinkPhoto(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_PHOTO_EDGE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  return new Promise((resolve, reject) => canvas.toBlob(
+    (blob) => (blob ? resolve(blob) : reject(new Error('encode failed'))), 'image/jpeg', 0.85));
+}
+
+// A picture goes to the server by itself, so the item must be saved there first. Waits briefly
+// for the save to land. This avoids re-rendering the page, which would clear a form being typed in.
+async function waitUntilSaved(id) {
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    if (saved.get('issues').has(id)) return true;
+    if (!syncing) sync();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return saved.get('issues').has(id);
+}
+
+async function uploadPhoto(issue, file) {
+  state.imageError = null;
+  let blob;
+  try {
+    blob = await shrinkPhoto(file);
+  } catch {
+    state.imageError = { id: issue.id, text: 'Could not read that picture. Try a JPEG or PNG.' };
+    render();
+    return;
+  }
+  if (!(await waitUntilSaved(issue.id))) {
+    state.imageError = { id: issue.id, text: 'Still saving this item. Try the picture again in a moment.' };
+    render();
+    return;
+  }
+  try {
+    const res = await fetch(`/api/issues/${encodeURIComponent(issue.id)}/image`, {
+      method: 'PUT', headers: { 'content-type': blob.type }, body: blob,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    state.issueImages.set(issue.id, Date.now());
+  } catch (err) {
+    state.imageError = { id: issue.id, text: `Could not save the picture. ${err.message}` };
+  }
+  render();
+}
+
+async function removePhoto(issue) {
+  if (!window.confirm('Remove this picture?')) return;
+  state.imageError = null;
+  try {
+    const res = await fetch(`/api/issues/${encodeURIComponent(issue.id)}/image`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    state.issueImages.delete(issue.id);
+  } catch {
+    state.imageError = { id: issue.id, text: 'Could not remove the picture. Check the connection and try again.' };
+  }
+  render();
 }
 
 // A slider from 1 to 5 with its current value shown beside it.
@@ -689,6 +786,7 @@ async function boot() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     for (const c of COLLECTIONS) state[c] = data[c];
+    state.issueImages = new Map(data.issueImages.map((id) => [id, 0]));
     takeSnapshot();
     state.loaded = true;
     state.error = null;

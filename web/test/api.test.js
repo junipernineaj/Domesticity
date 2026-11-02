@@ -56,3 +56,37 @@ test('wrong methods and unknown API paths are refused', async () => {
   assert.equal((await fetch(`${base}/api/data`, { method: 'POST' })).status, 405);
   assert.equal((await fetch(`${base}/api/nothing`)).status, 404);
 });
+
+test('a picture can be stored, fetched, replaced and removed', async () => {
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+  const put = await fetch(`${base}/api/issues/i-tap/image`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: jpeg });
+  assert.equal(put.status, 200);
+  const got = await fetch(`${base}/api/issues/i-tap/image`);
+  assert.equal(got.status, 200);
+  assert.equal(got.headers.get('content-type'), 'image/jpeg');
+  assert.deepEqual(Buffer.from(await got.arrayBuffer()), jpeg);
+  assert.equal(got.headers.get('cache-control'), 'private, no-cache');
+  const data = await (await fetch(`${base}/api/data`)).json();
+  assert.ok(data.issueImages.includes('i-tap'));
+  const del = await fetch(`${base}/api/issues/i-tap/image`, { method: 'DELETE' });
+  assert.equal(del.status, 200);
+  assert.equal((await fetch(`${base}/api/issues/i-tap/image`)).status, 404);
+});
+
+test('picture refusals: not a picture, unknown item, too large, wrong method', async () => {
+  const text = await fetch(`${base}/api/issues/i-tap/image`, { method: 'PUT', body: 'hello' });
+  assert.equal(text.status, 400);
+  const unknown = await fetch(`${base}/api/issues/no-such/image`, { method: 'PUT', body: Buffer.from([0xff, 0xd8, 0xff]) });
+  assert.equal(unknown.status, 404);
+  const big = await fetch(`${base}/api/issues/i-tap/image`, { method: 'PUT', body: Buffer.alloc(3_000_001, 0xff) });
+  assert.equal(big.status, 413);
+  const post = await fetch(`${base}/api/issues/i-tap/image`, { method: 'POST' });
+  assert.equal(post.status, 405);
+});
+
+test('a sync body over 1 MB is refused with 413, and the refusal reaches the client', async () => {
+  const res = await fetch(`${base}/api/sync`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ops: [], pad: 'x'.repeat(1_100_000) }),
+  });
+  assert.equal(res.status, 413);
+});
