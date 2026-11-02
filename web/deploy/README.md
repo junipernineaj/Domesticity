@@ -71,6 +71,19 @@ sudo systemctl status cloudflared --no-pager
 
 The tunnel should show as **Healthy** back in the dashboard within a minute.
 
+### If `service install` says cloudflared is already installed
+
+That means a cloudflared service already exists on this server, possibly from an earlier attempt or from another app. Don't uninstall it until you know what it runs, because uninstalling can take other apps offline. Check first:
+
+```sh
+systemctl cat cloudflared --no-pager | grep ExecStart    # shows how it starts (token or config file)
+ls /etc/cloudflared/ 2>/dev/null                          # a config.yml here means a locally managed tunnel
+```
+
+- **If it runs with a token** (`tunnel run --token ...`): it's a dashboard-managed tunnel already. Don't install a second one. Instead, in the dashboard open that tunnel → **Public hostnames → Add** `domesticity.junipernine.com` → `http://127.0.0.1:8095`. Then `sudo systemctl restart cloudflared`. One cloudflared can serve several apps.
+- **If it reads `/etc/cloudflared/config.yml`**: it's locally managed. Add an entry for `domesticity.junipernine.com` to that `ingress:` list (above the final `http_status:404` line) pointing at `http://127.0.0.1:8095`, then `sudo systemctl restart cloudflared`. The hostname still needs a DNS record: `cloudflared tunnel route dns <tunnel-name> domesticity.junipernine.com`.
+- **If it was only a leftover from a failed attempt** (no working tunnel, nothing else using it): `sudo cloudflared service uninstall`, then re-run `sudo cloudflared service install <token>`.
+
 At this point `https://domesticity.junipernine.com` answers, but **anyone on the internet can reach it**. Do step 4 before you use it.
 
 ## 4. Protect it with Cloudflare Access
