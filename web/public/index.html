@@ -72,6 +72,8 @@
     button.info[aria-expanded="true"] { background: var(--accent); color: #fff; }
     .detail { background: var(--bg); border-left: 3px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin: 6px 0; font-size: .92rem; white-space: pre-line; }
     form.editor textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
+    [hidden] { display: none !important; }
+    #save-status { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 520px; margin: 0 auto; background: var(--card); border: 1px solid var(--late); color: var(--late); border-radius: 10px; padding: 10px 14px; box-shadow: 0 2px 10px rgba(0, 0, 0, .15); }
   </style>
 </head>
 <body>
@@ -84,6 +86,7 @@
     <a href="#/configure" data-page="configure">Configure</a>
   </nav>
   <main id="app"></main>
+  <div id="save-status" role="status" hidden></div>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

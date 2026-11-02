@@ -1,7 +1,6 @@
-// Domesticity web: Status (landing), Outstanding (views), Configure (routines).
-// Phase 0: everything lives in memory. Changes last until the page or service restarts.
+// Domesticity web: Status (landing), Outstanding (views), Configure (routines), Spaces, Snags.
+// Data is stored on the server (ADR-0011). The page keeps a working copy and sends changes back.
 import { todayIn } from '/src/dates.js';
-import { seed } from '/src/seed.js';
 import { nextDue, completionsFor } from '/src/schedule.js';
 import { householdStats } from '/src/stats.js';
 import { group, LENSES, outstanding } from '/src/outstanding.js';
@@ -33,11 +32,12 @@ const KINDS = [
 const WEEKDAYS = [[2, 'Mon'], [3, 'Tue'], [4, 'Wed'], [5, 'Thu'], [6, 'Fri'], [7, 'Sat'], [1, 'Sun']];
 
 const today = todayIn(TIME_ZONE);
-const state = {
-  today,
-  horizonDays: 7,
-  ...seed(today),
-};
+// Data collections come from GET /api/data. `state` is the working copy. `saved` holds what the
+// server last confirmed, and sync() sends whatever differs.
+const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions'];
+const state = { today, horizonDays: 7, loaded: false, error: null, saveError: null };
+for (const c of COLLECTIONS) state[c] = [];
+let saved = new Map();
 
 // ---- small DOM helper -------------------------------------------------------------------
 
@@ -72,6 +72,7 @@ const outstandingItems = (horizonDays) => outstanding({
 function markDone(routine, skipped) {
   const cs = completionsFor(state.completions, routine.id);
   state.completions.push({
+    id: `c${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
     routineId: routine.id,
     doneOn: state.today,
     dueOn: nextDue(routine, cs),
@@ -239,8 +240,6 @@ function outstandingPage(viewId) {
 function configureList() {
   return el('div', {},
     el('h1', {}, 'Configure'),
-    el('div', { class: 'banner' },
-      'Changes aren\'t saved yet. They last until the page or the service restarts, so treat this as a preview.'),
     el('div', { class: 'row' },
       el('a', { class: 'btn primary', href: '#/configure/new' }, 'Add routine'),
     ),
@@ -381,7 +380,6 @@ function spacesPage() {
     el('h1', {}, 'Spaces'),
     el('p', { class: 'sub' },
       'Every place that needs something doing to it, and the things in each one. A routine such as "Clean the toilet" can then say where each toilet is.'),
-    el('div', { class: 'banner' }, 'Changes aren\'t saved yet, like Configure.'),
     el('form', { class: 'row', onsubmit: addSpace }, nameInput, el('button', { class: 'btn primary', type: 'submit' }, 'Add space')),
     state.spaces.length === 0
       ? el('div', { class: 'empty' }, 'No spaces yet.')
@@ -468,7 +466,6 @@ function issuesPage(arg) {
     el('h1', {}, 'Snags and nice to haves'),
     el('p', { class: 'sub' },
       'A snag is something that is wrong. A nice to have is an idea for later. Both stay on the list until you mark them done.'),
-    el('div', { class: 'banner' }, 'Changes aren\'t saved yet, like Configure.'),
     issueForm(kind),
     el('div', { class: 'row' }, viewBar),
     body,
@@ -555,9 +552,100 @@ function render() {
     if (link.dataset.page === page) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
+  if (!state.loaded) content = el('div', { class: 'empty' }, state.error ?? 'Loading…');
   document.getElementById('app').replaceChildren(content);
   window.scrollTo(0, 0);
+  updateSaveStatus();
+  sync();
+}
+
+// ---- loading and saving -----------------------------------------------------------------
+
+// Upserts go parent first and deletes go child first, so the server never sees a missing parent (ADR-0011).
+const UPSERT_ORDER = COLLECTIONS;
+const DELETE_ORDER = [...COLLECTIONS].reverse();
+let syncing = false;
+let retryTimer = null;
+
+async function boot() {
+  try {
+    const res = await fetch('/api/data', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    for (const c of COLLECTIONS) state[c] = data[c];
+    takeSnapshot();
+    state.loaded = true;
+    state.error = null;
+  } catch {
+    state.error = 'Could not load your data. Check the connection, then reload the page.';
+  }
+  render();
+}
+
+function takeSnapshot() {
+  saved = new Map(COLLECTIONS.map((c) => [c, new Map(state[c].map((i) => [i.id, JSON.stringify(i)]))]));
+}
+
+// Everything that differs from what the server last confirmed.
+function pendingOps() {
+  const ops = [];
+  for (const c of UPSERT_ORDER) {
+    const prev = saved.get(c);
+    for (const item of state[c]) {
+      const serialized = JSON.stringify(item);
+      if (prev.get(item.id) !== serialized) ops.push({ op: 'upsert', collection: c, item, serialized });
+    }
+  }
+  for (const c of DELETE_ORDER) {
+    const current = new Set(state[c].map((i) => i.id));
+    for (const id of saved.get(c).keys()) {
+      if (!current.has(id)) ops.push({ op: 'delete', collection: c, id });
+    }
+  }
+  return ops;
+}
+
+async function sync() {
+  if (!state.loaded || syncing) return;
+  const ops = pendingOps();
+  if (ops.length === 0) {
+    state.saveError = null;
+    updateSaveStatus();
+    return;
+  }
+  syncing = true;
+  try {
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ops: ops.map(({ serialized, ...op }) => op) }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    for (const op of ops) {
+      if (op.op === 'upsert') saved.get(op.collection).set(op.item.id, op.serialized);
+      else saved.get(op.collection).delete(op.id);
+    }
+    state.saveError = null;
+  } catch {
+    state.saveError = "Couldn't save your last change. It will be retried.";
+  } finally {
+    syncing = false;
+  }
+  updateSaveStatus();
+  if (state.saveError) {
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(sync, 5000);
+  } else if (pendingOps().length) {
+    sync();
+  }
+}
+
+function updateSaveStatus() {
+  const box = document.getElementById('save-status');
+  if (!box) return;
+  box.textContent = state.saveError ?? '';
+  box.hidden = !state.saveError;
 }
 
 window.addEventListener('hashchange', render);
-render();
+boot();

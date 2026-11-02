@@ -73,7 +73,7 @@ export function seed(today) {
     const ids = r.targetType
       ? things.filter((t) => t.type.toLowerCase() === r.targetType.toLowerCase()).map((t) => `${r.id}@${t.id}`)
       : [r.id];
-    return ids.map((routineId) => ({ routineId, doneOn, dueOn: doneOn, skipped: false, personId: null }));
+    return ids.map((routineId) => ({ id: `${routineId}:${doneOn}`, routineId, doneOn, dueOn: doneOn, skipped: false, personId: null }));
   });
 
   return { persons, routines, completions, spaces, things, issues };
