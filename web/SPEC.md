@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.8, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders)
+Status: Draft v0.9, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -118,7 +118,7 @@ Routines come back on a schedule. Problems and ideas don't: they stay open until
   The two are set independently. They usually correlate, but a snag can be, for example, Unsafe and Amber. Within a RAG colour, oldest first.
 - **Snags have no deadline.**
 - **Snag assignee:** every snag is either Household or External (a contractor).
-- **Nice to have score:** two sliders, Cost and Effort. The score is the average of the two. Nice to haves are not RAG rated. Each slider runs from 1 (low) to 5 (high).
+- **Nice to have score:** two sliders, Cost and Effort. The score is the average of the two. Nice to haves are not RAG rated. Each slider runs from 1 (low) to 5 (high). Nice to haves list the highest score first.
 - **Done** closes an item and moves it off the open lists.
 - **Reopen:** a closed snag or nice to have can be reopened, because a fix may not work. Reopening clears the done day. Every close and reopen is recorded in the activity log (6.10).
 - **Image:** a snag or nice to have can have an image attached, so the problem or idea can be seen. Images are stored on junipernine2 and served behind the same login as the rest of the app. Upload is not built yet.
