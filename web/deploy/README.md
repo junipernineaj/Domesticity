@@ -49,7 +49,7 @@ curl -s http://127.0.0.1:8095/ | head -5
 
 This is done in a browser on your Mac, not on the server.
 
-1. Open the Cloudflare Zero Trust dashboard → **Networks → Tunnels → Create a tunnel**.
+1. Open the main Cloudflare dashboard (the account home page, not Zero Trust) → **Networking → Tunnels → Create a tunnel**. If you can't see Networking, search the dashboard for "Tunnels". Tunnels aren't under Zero Trust in the current dashboard.
 2. Choose **Cloudflared**, and name it `junipernine2`. (One tunnel can serve all the home apps, each with its own hostname.)
 3. Cloudflare shows an install command for Debian/Ubuntu containing a long token. **Copy only the token** (the string after `--token`), and keep it private.
 4. Under **Public hostnames**, add:
@@ -75,9 +75,9 @@ At this point `https://domesticity.junipernine.com` answers, but **anyone on the
 
 ## 4. Protect it with Cloudflare Access
 
-This is the step that keeps the app private. In the Cloudflare Zero Trust dashboard:
+This is the step that keeps the app private. In the Zero Trust dashboard (the one with the Overview, Access controls and Settings menu):
 
-1. **Access → Applications → Add an application → Self-hosted.**
+1. **Access controls → Applications → Add an application → Self-hosted.**
 2. Application domain: `domesticity.junipernine.com`. Give it a name like "Domesticity".
 3. Add a policy: action **Allow**, include **Emails** and enter your own email address.
 4. Identity provider: one-time PIN (email code) is enough for one person.
@@ -95,7 +95,7 @@ Open `https://domesticity.junipernine.com` in Safari, sign in with the emailed c
 - Restart: `sudo systemctl restart domesticity-web`.
 - Update: `cd ~/Domesticity && git pull origin master`, then re-run `sudo ./web/deploy/install.sh`.
 - Stop the public route without stopping the app: `sudo systemctl stop cloudflared`.
-- Routes and hostnames are changed in the dashboard (Networks → Tunnels → junipernine2), not on the server.
+- Routes and hostnames are changed in the main dashboard (Networking → Tunnels → junipernine2), not on the server.
 
 ## What this does not do yet
 
