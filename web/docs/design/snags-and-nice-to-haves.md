@@ -80,13 +80,14 @@ None open.
 
 Recorded 2 Nov 2026, from Tony's request. Not built.
 
-- Annual routines cover renewals of subscriptions and bills, such as car insurance and house insurance. They are yearly, not every N days.
-- Holidays sit under Nice to haves. The household takes a set number a year, for example three, each on a target date or range. A holiday stays outstanding until it is planned and booked.
+- Renewals are bills and subscriptions, such as car insurance and house insurance. Each has its own set date, because renewals vary.
+- A renewal can recur every 3 months (quarterly), 6 months (bi-annually), or 12 months (yearly), chosen per item.
+- Each renewal has a reminder some days before it is due. The lead time is set per item.
+- Holidays sit under Nice to haves. The default is three a year: April, September and December, named Tony's Birthday, Wedding Anniversary and Christmas. The pairing of months and names needs confirming.
+- Each holiday has two steps: Planned, then Booked. It stays outstanding until it is Booked.
 - Holidays show on the Outstanding dashboard, which changes the rule that issues stay off it (ADR-0009).
 
 ### Open questions
 
-- [ ] Should annual routines use a yearly schedule on a set date, as proposed, or an interval of 365 days?
-- [ ] Should a renewal have a reminder some days before it is due, for example 30?
-- [ ] Do the holidays for the next year appear automatically each January, or are they added by hand?
-- [ ] Is there one step from Not planned to Booked, or two, Planned and then Booked?
+- [ ] Which month is each occasion: is April Tony's Birthday, September the Wedding Anniversary, and December Christmas?
+- [ ] What is the default reminder lead time for a renewal, if an item does not set one?
