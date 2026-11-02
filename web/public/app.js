@@ -3,7 +3,7 @@
 import { todayIn } from '/src/dates.js';
 import { nextDue, completionsFor } from '/src/schedule.js';
 import { householdStats } from '/src/stats.js';
-import { byMonth, group, inRange, LENSES, LONG_RANGES, outstanding } from '/src/outstanding.js';
+import { group, inRange, LENSES, LONG_RANGES, outstanding } from '/src/outstanding.js';
 import { status } from '/src/status.js';
 import { scheduleText } from '/src/describe.js';
 import { expandRoutines } from '/src/spaces.js';
@@ -23,8 +23,6 @@ const VIEWS = [
   { id: 'category', label: 'Category', lens: 'category' },
   { id: 'person', label: 'Person', lens: 'person' },
   { id: 'cadence', label: 'Cadence', lens: 'cadence' },
-  { id: 'next-quarter', label: LONG_RANGES['next-quarter'].label },
-  { id: 'next-year', label: LONG_RANGES['next-year'].label },
 ];
 
 const KINDS = [
@@ -43,7 +41,7 @@ const today = todayIn(TIME_ZONE);
 const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions'];
 // issueImages: item id -> a version number for the picture URL, set when the picture loads or changes.
 // Pictures are not part of the synced working copy (ADR-0013).
-const state = { today, horizonDays: 7, loaded: false, error: null, saveError: null, issueImages: new Map(), imageError: null };
+const state = { today, horizonDays: 7, longRange: null, loaded: false, error: null, saveError: null, issueImages: new Map(), imageError: null };
 const MAX_PHOTO_EDGE = 1600;
 for (const c of COLLECTIONS) state[c] = [];
 let saved = new Map();
@@ -207,8 +205,9 @@ function statusPage() {
 function outstandingPage(viewId) {
   const view = VIEWS.find((v) => v.id === viewId) ?? VIEWS[0];
   const isOverdue = view.id === 'overdue';
-  const range = LONG_RANGES[view.id];
-  // The longer-range tabs look a year ahead; the rest of the page uses the 7 or 30 day window.
+  const isCadence = view.id === 'cadence';
+  // Next quarter and Next year sit beside the 7 and 30 day windows, on the Cadence tab only.
+  const range = isCadence && state.longRange ? LONG_RANGES[state.longRange] : null;
   const items = isOverdue
     ? outstandingItems(0).filter((i) => i.days < 0)
     : range
@@ -222,11 +221,15 @@ function outstandingPage(viewId) {
     }, v.label)),
   );
 
-  const horizonBar = isOverdue || range ? null : el('div', { class: 'segmented', role: 'group', 'aria-label': 'Look ahead' },
-    ...HORIZONS.map((h) => el('button', {
-      'aria-pressed': h === state.horizonDays ? 'true' : 'false',
-      onclick: () => { state.horizonDays = h; render(); },
-    }, h === 7 ? 'Next 7 days' : 'Next 30 days')),
+  const windowButton = (label, selected, onclick) => el('button', {
+    'aria-pressed': selected ? 'true' : 'false',
+    onclick,
+  }, label);
+  const horizonBar = isOverdue ? null : el('div', { class: 'segmented', role: 'group', 'aria-label': 'Look ahead' },
+    ...HORIZONS.map((h) => windowButton(h === 7 ? 'Next 7 days' : 'Next 30 days',
+      !range && h === state.horizonDays, () => { state.longRange = null; state.horizonDays = h; render(); })),
+    ...(isCadence ? Object.entries(LONG_RANGES).map(([id, r]) => windowButton(r.label,
+      range === LONG_RANGES[id], () => { state.longRange = id; render(); })) : []),
   );
 
   let body;
@@ -234,15 +237,13 @@ function outstandingPage(viewId) {
     body = el('div', { class: 'empty' }, isOverdue ? 'Nothing overdue.' : range ? 'Nothing due in this range.' : 'Nothing outstanding in this window.');
   } else if (isOverdue) {
     body = groupSection('Overdue', items);
-  } else if (range) {
-    body = el('div', {}, ...byMonth(items).map((g) => groupSection(g.key, g.items)));
   } else {
     const lens = LENSES.find((l) => l.id === view.lens);
     body = el('div', {}, ...group(items, lens).map((g) => groupSection(g.key, g.items)));
   }
 
   const note = range
-    ? `Due ${range.min} to ${range.max} days from today, grouped by the month they fall due in.`
+    ? `Due ${range.min} to ${range.max} days from today, grouped by how often each one repeats.`
     : 'A routine appears under every heading that applies, so one task can show up in several places.';
   return el('div', {},
     el('h1', {}, 'Outstanding'),
