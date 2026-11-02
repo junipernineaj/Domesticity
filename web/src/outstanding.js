@@ -6,6 +6,7 @@
 // several headings. See docs/adr/0007-multi-facet-categories.md.
 import { diffDays } from './dates.js';
 import { completionsFor, nextDue } from './schedule.js';
+import { isBooked, nextOccurrence } from './holidays.js';
 
 /**
  * @typedef {Object} Item
@@ -25,8 +26,8 @@ import { completionsFor, nextDue } from './schedule.js';
  * @param {Map<string, {name: string}>} [args.persons]
  * @returns {Item[]}
  */
-export function outstanding({ routines, completions, today, horizonDays = 7, persons = new Map() }) {
-  return routines
+export function outstanding({ routines, completions, today, horizonDays = 7, persons = new Map(), holidays = [] }) {
+  const routineItems = routines
     .filter((r) => !r.paused)
     .map((routine) => {
       const dueOn = nextDue(routine, completionsFor(completions, routine.id));
@@ -36,7 +37,18 @@ export function outstanding({ routines, completions, today, horizonDays = 7, per
         days: diffDays(today, dueOn),
         assigneeName: persons.get(routine.assigneeId)?.name ?? null,
       };
-    })
+    });
+  // A planned holiday is outstanding until it is booked for its next occurrence (ADR-0015).
+  const holidayItems = holidays.filter((h) => !isBooked(h, today)).map((h) => {
+    const dueOn = nextOccurrence(h, today);
+    return {
+      routine: { id: `holiday:${h.id}`, title: h.name, description: h.note ?? undefined, kind: 'holiday', holidayId: h.id, tags: [], places: [] },
+      dueOn,
+      days: diffDays(today, dueOn),
+      assigneeName: null,
+    };
+  });
+  return [...routineItems, ...holidayItems]
     // A renewal shows once it is within its lead time, even when that is longer than the horizon.
     .filter((item) => item.days <= Math.max(horizonDays, item.routine.kind === 'renewal' ? item.routine.leadDays ?? 30 : 0))
     .sort((a, b) => a.days - b.days || a.routine.title.localeCompare(b.routine.title));
@@ -57,7 +69,7 @@ export function inRange(items, min, max) {
 }
 
 const WHEN_ORDER = ['Overdue', 'Today', 'Tomorrow', 'In 2–7 days', 'In 8–30 days', 'Later'];
-const CADENCE_ORDER = ['Every 1–3 days', 'Every 4–14 days', 'Every 15–45 days', 'Every 46+ days', 'Weekly on set days', 'Monthly on a set day', 'Renewals'];
+const CADENCE_ORDER = ['Every 1–3 days', 'Every 4–14 days', 'Every 15–45 days', 'Every 46+ days', 'Weekly on set days', 'Monthly on a set day', 'Renewals', 'Holidays'];
 
 function whenKey(days) {
   if (days < 0) return 'Overdue';
@@ -72,6 +84,7 @@ function cadenceKey(routine) {
   if (routine.kind === 'weekly') return 'Weekly on set days';
   if (routine.kind === 'monthly') return 'Monthly on a set day';
   if (routine.kind === 'renewal') return 'Renewals';
+  if (routine.kind === 'holiday') return 'Holidays';
   const n = routine.intervalDays ?? 7;
   if (n <= 3) return 'Every 1–3 days';
   if (n <= 14) return 'Every 4–14 days';

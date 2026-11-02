@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.19, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before. v0.14: calendar view, proposed. v0.15: booked holidays are busy days; range a year, possibly 18 months. v0.16: load is the count of tasks due in a day; green 0, amber 1 to 2, red 3 to 4. v0.17: 5 or more tasks is a deeper red. v0.18: images on snags and nice to haves, ADR-0013. v0.19: renewals built, ADR-0014)
+Status: Draft v0.20, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before. v0.14: calendar view, proposed. v0.15: booked holidays are busy days; range a year, possibly 18 months. v0.16: load is the count of tasks due in a day; green 0, amber 1 to 2, red 3 to 4. v0.17: 5 or more tasks is a deeper red. v0.18: images on snags and nice to haves, ADR-0013. v0.19: renewals built, ADR-0014. v0.20: holiday plans built, ADR-0015)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -149,7 +149,7 @@ A record of what happened, newest first, so changes can be traced.
 - The log is shown newest first, on its own page.
 
 ### 6.11 Annual routines and holiday plans
-Renewals are built (section 5.11, ADR-0014). Holiday plans are not built yet and need an ADR first. Recorded from the design review of 2 Nov 2026.
+Renewals are built (section 5.11, ADR-0014). Holiday plans are built (ADR-0015). Recorded from the design review of 2 Nov 2026.
 
 - **Renewals:** recurring bills and subscriptions, such as car insurance, house insurance, and subscription renewals.
   - Each renewal has its own set date. Renewals vary, so one date is not shared across items.
@@ -300,6 +300,7 @@ Notes:
 | Routines grouped by room | Changed | Lenses on the Outstanding dashboard (section 6.8) |
 | Outstanding dashboard | New | Not in iOS: multi-lens view of what's due |
 | Renewals on set dates (3, 6 or 12 months) | New | Section 5.11, ADR-0014 |
+| Holiday plans, planned until booked | New | ADR-0015 |
 
 ## 10. Architecture overview
 

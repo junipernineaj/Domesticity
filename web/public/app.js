@@ -11,6 +11,7 @@ import {
   ASSIGNEE_LABELS, closedIssues, groupIssuesBySpace, ISSUE_KINDS, issueCounts, openIssues, RAG_LABELS, SEVERITY_LABELS,
 } from '/src/issues.js';
 import { scoreOf } from '/src/issues-rules.js';
+import { isBooked, nextOccurrence } from '/src/holidays.js';
 
 const TIME_ZONE = 'Europe/London';
 const HORIZONS = [7, 30];
@@ -38,7 +39,7 @@ const WEEKDAYS = [[2, 'Mon'], [3, 'Tue'], [4, 'Wed'], [5, 'Thu'], [6, 'Fri'], [7
 const today = todayIn(TIME_ZONE);
 // Data collections come from GET /api/data. `state` is the working copy. `saved` holds what the
 // server last confirmed, and sync() sends whatever differs.
-const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions'];
+const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions', 'holidays'];
 // issueImages: item id -> a version number for the picture URL, set when the picture loads or changes.
 // Pictures are not part of the synced working copy (ADR-0013).
 const state = { today, horizonDays: 7, longRange: null, loaded: false, error: null, saveError: null, issueImages: new Map(), imageError: null };
@@ -68,6 +69,7 @@ const persons = () => new Map(state.persons.map((p) => [p.id, p]));
 const allRoutines = () => expandRoutines(state.routines, state.spaces, state.things);
 const outstandingItems = (horizonDays) => outstanding({
   routines: allRoutines(),
+  holidays: state.holidays,
   completions: state.completions,
   today: state.today,
   horizonDays,
@@ -114,6 +116,7 @@ function titleWithInfo(title, description) {
 }
 
 function itemRow(item) {
+  if (item.routine.kind === 'holiday') return holidayRow(item);
   const { text, cls } = dueText(item.days);
   return el('li', {},
     el('div', {},
@@ -499,6 +502,55 @@ const ISSUE_VIEWS = [
   { id: 'closed', label: 'Closed', href: '#/issues/closed' },
 ];
 
+// ---- Holidays (ADR-0015) ---------------------------------------------------------------
+
+function formatDay(date) {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+// Booking a holiday books it for its next occurrence. The server checks that the day matches.
+function setHolidayBooked(holiday, booked) {
+  holiday.bookedFor = booked ? nextOccurrence(holiday, state.today) : null;
+  render();
+}
+
+function holidayRow(item) {
+  const holiday = state.holidays.find((h) => h.id === item.routine.holidayId);
+  return el('li', {},
+    el('div', {},
+      el('div', { class: 'title' }, item.routine.title),
+      el('div', { class: 'meta' }, `Holiday · ${formatDay(item.dueOn)}`),
+    ),
+    el('div', {},
+      el('div', {}, dueText(item.days).text),
+      el('div', { class: 'actions' },
+        el('button', { class: 'done', onclick: () => setHolidayBooked(holiday, true) }, 'Mark booked')),
+    ),
+  );
+}
+
+function holidayPlans() {
+  return el('section', { class: 'group' },
+    el('header', {}, el('h2', {}, 'Holiday plans'), el('span', {}, 'planned until booked')),
+    el('ul', { class: 'items' }, ...state.holidays.map((h) => {
+      const booked = isBooked(h, state.today);
+      const note = el('input', { type: 'text', maxlength: '500', placeholder: 'Note (optional)' });
+      note.value = h.note ?? '';
+      note.addEventListener('change', () => { h.note = note.value.trim() || null; render(); });
+      return el('li', {},
+        el('div', {},
+          el('div', { class: 'title' }, h.name),
+          el('div', { class: 'meta' }, `${booked ? 'Booked' : 'Planned'} · ${formatDay(nextOccurrence(h, state.today))}`),
+          note,
+        ),
+        el('div', { class: 'actions' },
+          el('button', { class: booked ? '' : 'done', onclick: () => setHolidayBooked(h, !booked) },
+            booked ? 'Mark planned' : 'Mark booked')),
+      );
+    })),
+  );
+}
+
 function issuesPage(arg) {
   const view = ISSUE_VIEWS.find((v) => v.id === arg) ?? ISSUE_VIEWS[0];
   const viewBar = el('div', { class: 'segmented', role: 'group', 'aria-label': 'View' },
@@ -525,6 +577,7 @@ function issuesPage(arg) {
     el('p', { class: 'sub' },
       'Snags are things that are wrong, Red first. Nice to haves are ideas for later, cheapest and easiest first. Done closes an item, and Reopen brings it back.'),
     issueForm(view.id === 'nice' ? 'nice' : 'snag'),
+    view.id === 'nice' ? holidayPlans() : null,
     el('div', { class: 'row' }, viewBar),
     body,
   );
