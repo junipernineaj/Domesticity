@@ -1,6 +1,6 @@
 # ADR-0009: Snags and nice-to-haves are an open list, separate from routines
 
-Status: Accepted
+Status: Accepted. Amended by ADR-0012: reopen is allowed, and snags and nice to haves carry severity, urgency, assignee or scores.
 Date: 2026-11-02
 
 ## Context

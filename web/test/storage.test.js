@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openDatabase } from '../server/db.js';
-import { applySync, ConflictError, ensureSeeded, loadAll, ValidationError } from '../server/repo.js';
+import { activityPage, applySync, ConflictError, ensureSeeded, loadAll, ValidationError } from '../server/repo.js';
 
 const fresh = () => {
   const db = openDatabase(':memory:');
@@ -112,3 +112,79 @@ test('unknown collections and operations are refused', () => {
   assert.throws(() => applySync(db, [{ op: 'upsert', collection: 'users', item: {} }]), ValidationError);
   assert.throws(() => applySync(db, [{ op: 'truncate', collection: 'routines' }]), ValidationError);
 });
+
+// Phase 2 (ADR-0012): snags, nice to haves, reopen, and the activity log.
+
+const snagItem = (over = {}) => ({
+  id: 's1', kind: 'snag', title: 'Tap dripping', spaceId: null, addedOn: '2026-11-01', doneOn: null,
+  severity: 'soon', rag: 'amber', assignee: 'household', cost: null, effort: null, ...over,
+});
+const niceItem = (over = {}) => ({
+  id: 'n1', kind: 'nice', title: 'Curtains', spaceId: null, addedOn: '2026-11-01', doneOn: null,
+  severity: null, rag: null, assignee: null, cost: 2, effort: 4, ...over,
+});
+
+test('a snag needs severity, urgency and assignee; a nice to have must not have them', () => {
+  const db = fresh();
+  const reject = (item) => assert.throws(() => applySync(db, [{ op: 'upsert', collection: 'issues', item }]), ValidationError);
+  reject(snagItem({ severity: undefined }));
+  reject(snagItem({ rag: 'purple' }));
+  reject(snagItem({ assignee: 'landlord' }));
+  reject(snagItem({ cost: 3 }));
+  reject(niceItem({ rag: 'red' }));
+  reject(niceItem({ severity: 'unsafe' }));
+  reject(niceItem({ cost: 6 }));
+  reject(niceItem({ effort: 0 }));
+  applySync(db, [{ op: 'upsert', collection: 'issues', item: snagItem() }, { op: 'upsert', collection: 'issues', item: niceItem({ cost: null, effort: null }) }]);
+  const data = loadAll(db);
+  assert.equal(data.issues.find((i) => i.id === 's1').rag, 'amber');
+});
+
+test('closing and reopening an item are both recorded, and the item comes back open', () => {
+  const db = fresh();
+  applySync(db, [{ op: 'upsert', collection: 'issues', item: snagItem({ id: 'r1', title: 'Gutter' }) }]);
+  applySync(db, [{ op: 'upsert', collection: 'issues', item: snagItem({ id: 'r1', title: 'Gutter', doneOn: '2026-11-02' }) }]);
+  applySync(db, [{ op: 'upsert', collection: 'issues', item: snagItem({ id: 'r1', title: 'Gutter', doneOn: null }) }]);
+  assert.equal(loadAll(db).issues.find((i) => i.id === 'r1').doneOn, null);
+  const texts = activityTexts(db).filter((t) => t.includes('Gutter'));
+  assert.deepEqual(texts, ['Reopened snag: Gutter', 'Closed snag: Gutter', 'Added snag: Gutter']);
+});
+
+test('the activity log records what was done, with the space for a task in a space', () => {
+  const db = fresh();
+  applySync(db, [{ op: 'upsert', collection: 'completions', item: {
+    id: 'cx', routineId: 'toilet@t-toilet-downstairs', doneOn: '2026-11-02', dueOn: '2026-11-02', skipped: false, personId: null,
+  } }]);
+  assert.ok(activityTexts(db).includes('Did Clean the toilet · Downstairs loo'));
+});
+
+test('seeding writes nothing to the activity log', () => {
+  const db = fresh();
+  assert.equal(activityTexts(db).length, 0);
+});
+
+test('deleting a routine is recorded; the log is newest first and never shrinks', () => {
+  const db = fresh();
+  applySync(db, [{ op: 'upsert', collection: 'routines', item: routine({ id: 'gone', title: 'Gone soon' }) }]);
+  applySync(db, [{ op: 'delete', collection: 'routines', id: 'gone' }]);
+  const page = activityPage(db, { limit: 5 });
+  assert.equal(page.items[0].text, 'Deleted routine: Gone soon');
+  assert.equal(page.items[1].text, 'Added routine: Gone soon');
+  const all = activityPage(db, { limit: 500 }).items.length;
+  assert.ok(all >= 2);
+});
+
+test('the activity log pages from the newest entry backwards', () => {
+  const db = fresh();
+  for (let i = 0; i < 5; i += 1) {
+    applySync(db, [{ op: 'upsert', collection: 'spaces', item: { id: `sp${i}`, name: `Space ${i}` } }]);
+  }
+  const first = activityPage(db, { limit: 2 });
+  assert.deepEqual(first.items.map((e) => e.text), ['Added space: Space 4', 'Added space: Space 3']);
+  const second = activityPage(db, { before: first.next, limit: 2 });
+  assert.deepEqual(second.items.map((e) => e.text), ['Added space: Space 2', 'Added space: Space 1']);
+});
+
+function activityTexts(db) {
+  return activityPage(db, { limit: 500 }).items.map((e) => e.text).reverse().reverse();
+}

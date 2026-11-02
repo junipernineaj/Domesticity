@@ -1,5 +1,5 @@
 // HTTP handler for /api/. Two calls: GET /api/data and POST /api/sync (ADR-0011).
-import { applySync, ConflictError, ensureSeeded, loadAll, ValidationError } from './repo.js';
+import { activityPage, applySync, ConflictError, ensureSeeded, loadAll, ValidationError } from './repo.js';
 
 const MAX_BODY = 1_000_000;
 
@@ -41,6 +41,15 @@ export function createApi(db) {
     if (pathname === '/api/data') {
       if (req.method !== 'GET') return send(res, 405, { error: 'Use GET' });
       return send(res, 200, loadAll(db));
+    }
+
+    if (pathname === '/api/activity') {
+      if (req.method !== 'GET') return send(res, 405, { error: 'Use GET' });
+      const params = new URL(req.url ?? '/', 'http://localhost').searchParams;
+      const before = params.has('before') ? Number(params.get('before')) : null;
+      const limit = Math.min(200, Math.max(1, Number(params.get('limit') ?? 50)));
+      if (before !== null && !Number.isInteger(before)) return send(res, 400, { error: 'before must be a whole number' });
+      return send(res, 200, activityPage(db, { before, limit }));
     }
 
     if (pathname === '/api/sync') {
