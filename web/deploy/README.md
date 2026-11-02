@@ -12,15 +12,15 @@ Read ADR-0008 for the reasons. The steps below are for you to run on the server 
 
 ## 1. Install the app
 
-On the server, from a copy of the repo (clone it, or copy `web/`):
+From the top of your Domesticity checkout on the server (the folder that contains `web/`). Make sure it's on the latest `master` first:
 
 ```sh
-git clone --branch master https://github.com/junipernineaj/Domesticity.git ~/domesticity
-cd ~/domesticity
-sudo ./web/deploy/install.sh ~/domesticity/web
+cd ~/Domesticity
+git pull origin master
+sudo ./web/deploy/install.sh
 ```
 
-Re-run the same command to update after a `git pull`. The script creates a `domesticity` system user, copies the app to `/opt/domesticity/web`, runs the tests, installs the service, and checks it responds on `127.0.0.1:8095`.
+No path argument is needed: the script finds the `web/` folder it's in. Re-run the same three commands to update after a change. The script creates a `domesticity` system user, copies the app to `/opt/domesticity/web`, runs the tests, installs the service, and checks it responds on `127.0.0.1:8095`.
 
 Check it yourself:
 
