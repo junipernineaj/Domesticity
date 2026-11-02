@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.11, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed)
+Status: Draft v0.12, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -141,15 +141,21 @@ A record of what happened, newest first, so changes can be traced.
 - The log is shown newest first, on its own page.
 
 ### 6.11 Annual routines and holiday plans (proposed)
-Not built. Recorded from the design review of 2 Nov 2026. Each part needs an ADR before it is built. The annual routines change the scheduling rules, and GUARDRAILS requires an ADR and golden tests for that.
+Not built. Recorded from the design review of 2 Nov 2026. Each part needs an ADR before it is built. The renewal schedule changes the scheduling rules, and GUARDRAILS requires an ADR and golden tests for that.
 
-- **Annual routines:** yearly jobs such as car insurance, house insurance, and subscription or bill renewals.
-  - Proposed: a new schedule kind, "yearly", due on a set day and month. A 29 February due date falls back to 28 February, as monthly falls back to month end.
-  - Proposed over an interval of 365 days, which would drift in leap years.
-  - In the Cadence lens, annual routines form their own group, Yearly.
+- **Renewals:** recurring bills and subscriptions, such as car insurance, house insurance, and subscription renewals.
+  - Each renewal has its own set date. Renewals vary, so one date is not shared across items.
+  - Each renewal recurs every 3 months (quarterly), 6 months (bi-annually), or 12 months (yearly), chosen per item.
+  - Proposed as a new schedule kind, set on a set day and month and repeated every 3, 6 or 12 months. Dates that do not exist in a month, such as 31 in April, fall back to the last day of that month. This is proposed over a 365-day interval, which would drift in leap years and cannot express quarterly or bi-annual dates cleanly.
+  - Each renewal has a reminder set some days before it is due. The lead time is set per item. Reminders use ADR-0004.
+  - In the Cadence lens, renewals form their own group, Renewals, so they are not mixed with routines that repeat in days.
   - They appear in Outstanding like other routines.
-- **Holiday plans:** the household takes a set number of holidays a year, for example three. Each has a target date or range and a note. They are kept under Nice to haves.
-  - Status: Not planned, then Planned, then Booked. A holiday is outstanding until it is Booked.
+- **Holiday plans:** occasions held once a year, under Nice to haves. The household has three by default:
+  - April: Tony's Birthday (proposed)
+  - September: Wedding Anniversary (proposed)
+  - December: Christmas (proposed)
+  The pairing of months and occasions is as Tony listed them and needs confirming. Each holiday has a target date or range and a note.
+  - Status has two steps: Planned, then Booked. A holiday is outstanding until it is Booked.
   - Holidays appear on the Outstanding dashboard. This changes the rule in 6.9 that issues stay off it, so ADR-0009 needs amending.
 
 ### 6.5 Household (People)
