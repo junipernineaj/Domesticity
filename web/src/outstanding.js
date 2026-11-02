@@ -4,7 +4,7 @@
 // (categories such as 'cleaning' or 'bedding') and places (rooms or areas, zero or
 // more). A lens groups the same items differently, so one routine can appear under
 // several headings. See docs/adr/0007-multi-facet-categories.md.
-import { diffDays } from './dates.js';
+import { diffDays, parts } from './dates.js';
 import { completionsFor, nextDue } from './schedule.js';
 
 /**
@@ -40,6 +40,38 @@ export function outstanding({ routines, completions, today, horizonDays = 7, per
     // A renewal shows once it is within its lead time, even when that is longer than the horizon.
     .filter((item) => item.days <= Math.max(horizonDays, item.routine.kind === 'renewal' ? item.routine.leadDays ?? 30 : 0))
     .sort((a, b) => a.days - b.days || a.routine.title.localeCompare(b.routine.title));
+}
+
+/**
+ * The longer-range tabs on Outstanding (days from today, inclusive). The 30-day view stops at 30,
+ * so these show what is coming further off, before any reminder would.
+ */
+export const LONG_RANGES = {
+  'next-quarter': { label: 'Next quarter', min: 31, max: 91 },
+  'next-year': { label: 'Next year', min: 92, max: 365 },
+};
+
+/** Items whose days from today fall between min and max, inclusive. */
+export function inRange(items, min, max) {
+  return items.filter((i) => i.days >= min && i.days <= max);
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * Groups items by the month they fall due in, earliest month first. Items are kept in due order.
+ * @returns {Array<{key: string, items: Item[]}>}
+ */
+export function byMonth(items) {
+  const groups = [];
+  for (const item of [...items].sort((a, b) => a.dueOn.localeCompare(b.dueOn))) {
+    const { year, month } = parts(item.dueOn);
+    const key = `${MONTH_NAMES[month - 1]} ${year}`;
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.items.push(item);
+    else groups.push({ key, items: [item] });
+  }
+  return groups;
 }
 
 const WHEN_ORDER = ['Overdue', 'Today', 'Tomorrow', 'In 2–7 days', 'In 8–30 days', 'Later'];
