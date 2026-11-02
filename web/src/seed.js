@@ -54,8 +54,8 @@ export function seed(today) {
 
   // Snags are things that are wrong; nice to haves are ideas for later (ADR-0009).
   const issues = [
-    { id: 'i-tap', kind: 'snag', title: 'Tap is dripping', spaceId: 'utility-room', addedOn: addDays(today, -4), doneOn: null },
-    { id: 'i-curtains', kind: 'nice', title: 'Make curtains to keep the cold out', spaceId: 'living-room', addedOn: addDays(today, -20), doneOn: null },
+    { id: 'i-tap', kind: 'snag', title: 'Tap is dripping', spaceId: 'utility-room', addedOn: addDays(today, -4), doneOn: null, severity: 'soon', rag: 'amber', assignee: 'household' },
+    { id: 'i-curtains', kind: 'nice', title: 'Make curtains to keep the cold out', spaceId: 'living-room', addedOn: addDays(today, -20), doneOn: null, cost: 2, effort: 3 },
   ];
 
   const startDate = addDays(today, -400);

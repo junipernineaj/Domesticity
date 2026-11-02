@@ -7,7 +7,10 @@ import { group, LENSES, outstanding } from '/src/outstanding.js';
 import { status } from '/src/status.js';
 import { scheduleText } from '/src/describe.js';
 import { expandRoutines } from '/src/spaces.js';
-import { groupIssuesBySpace, ISSUE_KINDS, issueCounts, openIssues } from '/src/issues.js';
+import {
+  ASSIGNEE_LABELS, closedIssues, groupIssuesBySpace, ISSUE_KINDS, issueCounts, openIssues, RAG_LABELS, SEVERITY_LABELS,
+} from '/src/issues.js';
+import { scoreOf } from '/src/issues-rules.js';
 
 const TIME_ZONE = 'Europe/London';
 const HORIZONS = [7, 30];
@@ -443,58 +446,114 @@ function removeThing(thing) {
 
 // ---- Snags and nice to haves ------------------------------------------------------------
 
+const ISSUE_VIEWS = [
+  { id: 'all', label: 'All open', href: '#/issues' },
+  { id: 'snag', label: 'Snags', href: '#/issues/snag' },
+  { id: 'nice', label: 'Nice to haves', href: '#/issues/nice' },
+  { id: 'closed', label: 'Closed', href: '#/issues/closed' },
+];
+
 function issuesPage(arg) {
-  const kind = ISSUE_KINDS.find((k) => k.id === arg)?.id ?? null;
-  const groups = groupIssuesBySpace(openIssues(state.issues, kind), state.spaces);
+  const view = ISSUE_VIEWS.find((v) => v.id === arg) ?? ISSUE_VIEWS[0];
+  const viewBar = el('div', { class: 'segmented', role: 'group', 'aria-label': 'View' },
+    ...ISSUE_VIEWS.map((v) => el('a', { href: v.href, 'aria-current': v.id === view.id ? 'page' : false }, v.label)));
 
-  const viewBar = el('div', { class: 'segmented', role: 'group', 'aria-label': 'Kind' },
-    el('a', { href: '#/issues', 'aria-current': kind ? false : 'page' }, 'All'),
-    ...ISSUE_KINDS.map((k) => el('a', {
-      href: `#/issues/${k.id}`,
-      'aria-current': kind === k.id ? 'page' : false,
-    }, k.plural)),
-  );
-
-  const body = groups.length === 0
-    ? el('div', { class: 'empty' }, 'Nothing open here.')
-    : el('div', {}, ...groups.map((g) => el('section', { class: 'group' },
-        el('header', {}, el('h2', {}, g.key), el('span', {}, `${g.items.length} open`)),
-        el('ul', { class: 'items' }, ...g.items.map(issueRow)),
-      )));
+  let body;
+  if (view.id === 'closed') {
+    const items = closedIssues(state.issues);
+    body = items.length === 0
+      ? el('div', { class: 'empty' }, 'Nothing closed yet.')
+      : el('section', { class: 'group' }, el('ul', { class: 'items' }, ...items.map(issueRow)));
+  } else {
+    const groups = groupIssuesBySpace(openIssues(state.issues, view.id === 'all' ? null : view.id), state.spaces);
+    body = groups.length === 0
+      ? el('div', { class: 'empty' }, 'Nothing open here.')
+      : el('div', {}, ...groups.map((g) => el('section', { class: 'group' },
+          el('header', {}, el('h2', {}, g.key), el('span', {}, `${g.items.length} open`)),
+          el('ul', { class: 'items' }, ...g.items.map(issueRow)),
+        )));
+  }
 
   return el('div', {},
     el('h1', {}, 'Snags and nice to haves'),
     el('p', { class: 'sub' },
-      'A snag is something that is wrong. A nice to have is an idea for later. Both stay on the list until you mark them done.'),
-    issueForm(kind),
+      'Snags are things that are wrong, Red first. Nice to haves are ideas for later, cheapest and easiest first. Done closes an item, and Reopen brings it back.'),
+    issueForm(view.id === 'nice' ? 'nice' : 'snag'),
     el('div', { class: 'row' }, viewBar),
     body,
   );
 }
 
+function scoreText(issue) {
+  const score = scoreOf(issue);
+  return score == null ? 'not scored yet' : `score ${score.toFixed(1)} (cost ${issue.cost}, effort ${issue.effort})`;
+}
+
 function issueRow(issue) {
+  const isSnag = issue.kind === 'snag';
   const kindLabel = ISSUE_KINDS.find((k) => k.id === issue.kind).label;
-  return el('li', {},
+  const details = isSnag ? [SEVERITY_LABELS[issue.severity], ASSIGNEE_LABELS[issue.assignee]] : [scoreText(issue)];
+  const actions = issue.doneOn
+    ? [el('button', { onclick: () => reopenIssue(issue) }, 'Reopen')]
+    : [el('button', { class: 'done', onclick: () => closeIssue(issue) }, 'Done')];
+  actions.push(el('button', { onclick: () => removeIssue(issue) }, 'Remove'));
+
+  return el('li', { class: isSnag && issue.rag ? `urgent-${issue.rag}` : null },
     el('div', {},
-      el('div', { class: 'title' }, issue.title),
-      el('div', { class: 'meta' }, kindLabel, ` · added ${issue.addedOn}`),
+      el('div', { class: 'title' },
+        isSnag && issue.rag ? el('span', { class: `rag ${issue.rag}` }, RAG_LABELS[issue.rag]) : null,
+        issue.title),
+      el('div', { class: 'meta' },
+        kindLabel,
+        ...details.map((d) => ` · ${d}`),
+        issue.doneOn ? ` · closed ${issue.doneOn}` : ` · added ${issue.addedOn}`,
+      ),
     ),
-    el('div', { class: 'actions' },
-      el('button', { class: 'done', onclick: () => closeIssue(issue) }, 'Done'),
-      el('button', { onclick: () => removeIssue(issue) }, 'Remove'),
-    ),
+    el('div', { class: 'actions' }, ...actions),
   );
+}
+
+// A slider from 1 to 5 with its current value shown beside it.
+function ratingSlider(label, initial) {
+  const input = el('input', { type: 'range', min: '1', max: '5', step: '1' });
+  input.value = String(initial);
+  const out = el('output', {}, String(initial));
+  input.addEventListener('input', () => { out.textContent = input.value; });
+  return { input, field: el('label', {}, `${label} (1 low, 5 high)`, el('div', { class: 'row' }, input, out)) };
 }
 
 function issueForm(defaultKind) {
   const titleInput = el('input', { type: 'text', maxlength: '120', placeholder: 'e.g. Tap is dripping in the utility room' });
   const kindSelect = el('select', {}, ...ISSUE_KINDS.map((k) => el('option', { value: k.id }, k.label)));
-  kindSelect.value = defaultKind ?? 'snag';
+  kindSelect.value = defaultKind;
   const spaceSelect = el('select', {},
     el('option', { value: '' }, 'Nowhere in particular'),
     ...state.spaces.map((s) => el('option', { value: s.id }, s.name)),
   );
+  const severitySelect = el('select', {}, ...Object.entries(SEVERITY_LABELS).map(([v, l]) => el('option', { value: v }, l)));
+  severitySelect.value = 'soon';
+  const ragSelect = el('select', {}, ...Object.entries(RAG_LABELS).map(([v, l]) => el('option', { value: v }, l)));
+  ragSelect.value = 'amber';
+  const assigneeSelect = el('select', {}, ...Object.entries(ASSIGNEE_LABELS).map(([v, l]) => el('option', { value: v }, l)));
+  assigneeSelect.value = 'household';
+  const cost = ratingSlider('Cost', 3);
+  const effort = ratingSlider('Effort', 3);
   const errorEl = el('div', { class: 'error' });
+
+  const snagFields = el('div', {},
+    el('div', { class: 'row' },
+      el('label', {}, 'Severity', severitySelect),
+      el('label', {}, 'Urgency (RAG)', ragSelect),
+      el('label', {}, 'Who fixes it', assigneeSelect),
+    ),
+  );
+  const niceFields = el('div', {}, cost.field, effort.field);
+  const syncKind = () => {
+    snagFields.hidden = kindSelect.value !== 'snag';
+    niceFields.hidden = kindSelect.value !== 'nice';
+  };
+  kindSelect.addEventListener('change', syncKind);
+  syncKind();
 
   return el('form', {
     class: 'editor',
@@ -505,14 +564,18 @@ function issueForm(defaultKind) {
         errorEl.textContent = 'Say what it is.';
         return;
       }
-      state.issues.push({
-        id: `i${Date.now()}`,
-        kind: kindSelect.value,
+      const kind = kindSelect.value;
+      const base = {
+        id: `i${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+        kind,
         title,
         spaceId: spaceSelect.value || null,
         addedOn: state.today,
         doneOn: null,
-      });
+      };
+      state.issues.push(kind === 'snag'
+        ? { ...base, severity: severitySelect.value, rag: ragSelect.value, assignee: assigneeSelect.value, cost: null, effort: null }
+        : { ...base, severity: null, rag: null, assignee: null, cost: Number(cost.input.value), effort: Number(effort.input.value) });
       render();
     },
   },
@@ -521,6 +584,8 @@ function issueForm(defaultKind) {
       el('label', {}, 'Type', kindSelect),
       el('label', {}, 'Where', spaceSelect),
     ),
+    snagFields,
+    niceFields,
     errorEl,
     el('div', { class: 'row' }, el('button', { class: 'btn primary', type: 'submit' }, 'Add')),
   );
@@ -531,10 +596,60 @@ function closeIssue(issue) {
   render();
 }
 
+function reopenIssue(issue) {
+  issue.doneOn = null;
+  render();
+}
+
 function removeIssue(issue) {
   if (!window.confirm(`Remove "${issue.title}"?`)) return;
   state.issues = state.issues.filter((i) => i.id !== issue.id);
   render();
+}
+
+// ---- Activity ---------------------------------------------------------------------------
+
+// Every change, newest first. Read from the server a page at a time (GET /api/activity).
+function activityView() {
+  const list = el('ul', { class: 'items' });
+  const note = el('div', { class: 'hint' });
+  let next = null;
+  const more = el('button', { class: 'btn', type: 'button' }, 'Load older');
+  const when = (iso) => new Date(iso).toLocaleString('en-GB', {
+    timeZone: TIME_ZONE, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  async function load(before) {
+    more.disabled = true;
+    try {
+      const res = await fetch(`/api/activity?limit=50${before ? `&before=${before}` : ''}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const page = await res.json();
+      for (const entry of page.items) {
+        list.append(el('li', {},
+          el('div', {}, el('div', { class: 'title' }, entry.text)),
+          el('div', { class: 'meta' }, when(entry.at)),
+        ));
+      }
+      next = page.next;
+      more.hidden = next == null;
+      note.textContent = list.children.length === 0 ? 'Nothing has been recorded yet.' : '';
+    } catch {
+      note.textContent = 'Could not load the activity log.';
+    } finally {
+      more.disabled = false;
+    }
+  }
+
+  more.addEventListener('click', () => load(next));
+  load(null);
+  return el('div', {},
+    el('h1', {}, 'Activity'),
+    el('p', { class: 'sub' }, 'Every change, newest first. Kept for good.'),
+    list,
+    note,
+    el('div', { class: 'row' }, more),
+  );
 }
 
 // ---- routing ----------------------------------------------------------------------------
@@ -545,6 +660,7 @@ function render() {
   if (page === 'outstanding') content = outstandingPage(arg);
   else if (page === 'spaces') content = spacesPage();
   else if (page === 'issues') content = issuesPage(arg);
+  else if (page === 'activity') content = activityView();
   else if (page === 'configure') content = arg ? routineEditor(arg) : configureList();
   else content = statusPage();
 

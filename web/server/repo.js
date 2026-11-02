@@ -2,6 +2,8 @@
 // transaction, so a sync either lands whole or not at all. See ADR-0011.
 import { seed } from '../src/seed.js';
 import { todayIn } from '../src/dates.js';
+import { ASSIGNEES, RAGS, SEVERITIES } from '../src/issues-rules.js';
+import { randomUUID } from 'node:crypto';
 
 export const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions'];
 const MAX_OPS = 500;
@@ -56,6 +58,12 @@ function intOrNull(v, min, max, field) {
   return v;
 }
 
+// A field that does not apply to this kind of issue: it must be empty.
+function onlyFor(v, _unused, field) {
+  if (v == null) return null;
+  fail(`${field} does not apply to this kind of item`);
+}
+
 function listOf(v, field, max) {
   if (v == null) return [];
   if (!Array.isArray(v)) fail(`${field} must be a list`);
@@ -106,16 +114,27 @@ const VALIDATORS = {
     places: listOf(item.places, 'places', 40),
   }),
 
-  issues: (item) => ({
-    row: {
-      id: idOf(item.id, 'issue id'),
-      kind: oneOf(item.kind, ['snag', 'nice'], 'kind'),
-      title: str(item.title, 'title', 120),
-      space_id: idOrNull(item.spaceId, 'space'),
-      added_on: date(item.addedOn, 'added date'),
-      done_on: dateOrNull(item.doneOn, 'done date'),
-    },
-  }),
+  issues: (item) => {
+    const kind = oneOf(item.kind, ['snag', 'nice'], 'kind');
+    const isSnag = kind === 'snag';
+    return {
+      row: {
+        id: idOf(item.id, 'issue id'),
+        kind,
+        title: str(item.title, 'title', 120),
+        space_id: idOrNull(item.spaceId, 'space'),
+        added_on: date(item.addedOn, 'added date'),
+        done_on: dateOrNull(item.doneOn, 'done date'),
+        // Snags: severity, urgency and assignee are required, and they have no scores.
+        severity: isSnag ? oneOf(item.severity, SEVERITIES, 'severity') : onlyFor(item.severity, false, 'severity'),
+        rag: isSnag ? oneOf(item.rag, RAGS, 'urgency') : onlyFor(item.rag, false, 'urgency'),
+        assignee: isSnag ? oneOf(item.assignee, ASSIGNEES, 'assignee') : onlyFor(item.assignee, false, 'assignee'),
+        // Nice to haves: cost and effort are whole numbers from 1 to 5, and may be left unset.
+        cost: isSnag ? onlyFor(item.cost, false, 'cost') : intOrNull(item.cost, 1, 5, 'cost'),
+        effort: isSnag ? onlyFor(item.effort, false, 'effort') : intOrNull(item.effort, 1, 5, 'effort'),
+      },
+    };
+  },
 
   // A completion's routineId may be 'routine@thing' for a task expanded from a targeted routine.
   completions: (item) => {
@@ -137,6 +156,88 @@ const VALIDATORS = {
     };
   },
 };
+
+const KIND_LABEL = { snag: 'snag', nice: 'nice to have' };
+const COLUMN_NAMES = {
+  persons: ['id', 'name'], spaces: ['id', 'name'], things: ['id', 'space_id', 'type'],
+  routines: ['id', 'title', 'kind', 'interval_days', 'day_of_month', 'weekdays', 'start_date', 'paused', 'target_type', 'assignee_id', 'description'],
+  issues: ['id', 'kind', 'title', 'space_id', 'added_on', 'done_on', 'severity', 'rag', 'assignee', 'cost', 'effort'],
+  completions: ['id', 'routine_id', 'thing_id', 'done_on', 'due_on', 'skipped', 'person_id'],
+};
+
+// The title a routine shows in the browser, including the space for a task expanded from a thing.
+function taskTitle(db, routineId, thingId) {
+  const r = db.prepare('SELECT title FROM routines WHERE id = ?').get(routineId);
+  const title = r ? r.title : routineId;
+  if (!thingId) return title;
+  const s = db.prepare('SELECT s.name AS name FROM things t JOIN spaces s ON s.id = t.space_id WHERE t.id = ?').get(thingId);
+  return s ? `${title} · ${s.name}` : title;
+}
+
+function spaceName(db, id) {
+  const s = id ? db.prepare('SELECT name FROM spaces WHERE id = ?').get(id) : null;
+  return s ? s.name : null;
+}
+
+/**
+ * Says in words what a change does, for the activity log. Returns null when nothing is worth
+ * recording. Called before the change is written, so the old row is still there.
+ */
+function describeChange(db, p) {
+  const table = p.collection;
+  if (p.op === 'delete') {
+    const before = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(p.id);
+    if (!before) return null;
+    switch (table) {
+      case 'routines': return `Deleted routine: ${before.title}`;
+      case 'issues': return `Removed ${KIND_LABEL[before.kind]}: ${before.title}`;
+      case 'spaces': return `Deleted space: ${before.name}`;
+      case 'things': return `Removed ${before.type} from ${spaceName(db, before.space_id) ?? 'a space'}`;
+      case 'persons': return `Removed person: ${before.name}`;
+      default: return null; // completions go with their routine, which is logged
+    }
+  }
+
+  const row = p.row;
+  const before = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(row.id);
+  if (table === 'completions') {
+    if (before) return null;
+    const title = taskTitle(db, row.routine_id, row.thing_id);
+    return `${row.skipped ? 'Skipped' : 'Did'} ${title}`;
+  }
+  if (table === 'persons') return before ? `Changed person: ${row.name}` : `Added person: ${row.name}`;
+  if (table === 'spaces') return before ? `Changed space: ${row.name}` : `Added space: ${row.name}`;
+  if (table === 'things') {
+    const where = spaceName(db, row.space_id) ?? 'a space';
+    return before ? `Changed ${row.type} in ${where}` : `Added ${row.type} to ${where}`;
+  }
+  if (table === 'routines') {
+    const label = `routine: ${row.title}`;
+    if (!before) return `Added ${label}`;
+    const changed = COLUMN_NAMES.routines.some((c) => before[c] !== row[c]) || !sameSets(db, row.id, p.tags, p.places);
+    return changed ? `Edited ${label}` : null;
+  }
+  if (table === 'issues') {
+    const label = KIND_LABEL[row.kind];
+    if (!before) return `Added ${label}: ${row.title}`;
+    if (before.done_on == null && row.done_on != null) return `Closed ${label}: ${row.title}`;
+    if (before.done_on != null && row.done_on == null) return `Reopened ${label}: ${row.title}`;
+    const changed = COLUMN_NAMES.issues.some((c) => before[c] !== row[c]);
+    return changed ? `Edited ${label}: ${row.title}` : null;
+  }
+  return null;
+}
+
+function sameSets(db, routineId, tags, places) {
+  const now = (sql) => db.prepare(sql).all(routineId).map((r) => Object.values(r)[0]).sort().join('|');
+  return now('SELECT tag_name FROM routine_tags WHERE routine_id = ?') === [...tags].sort().join('|')
+    && now('SELECT place_name FROM routine_places WHERE routine_id = ?') === [...places].sort().join('|');
+}
+
+function logActivity(db, collection, text) {
+  db.prepare('INSERT INTO activity (id, at, collection, text) VALUES (?, ?, ?, ?)')
+    .run(randomUUID(), new Date().toISOString(), collection, text);
+}
 
 function transaction(db, fn) {
   db.exec('BEGIN IMMEDIATE');
@@ -203,7 +304,9 @@ export function loadAll(db) {
       places: placesBy.get(r.id) ?? [],
     })),
     issues: db.prepare(
-      'SELECT id, kind, title, space_id AS spaceId, added_on AS addedOn, done_on AS doneOn FROM issues ORDER BY rowid',
+      `SELECT id, kind, title, space_id AS spaceId, added_on AS addedOn, done_on AS doneOn,
+              severity, rag, assignee, cost, effort
+       FROM issues ORDER BY rowid`,
     ).all(),
     completions: db.prepare(
       'SELECT id, routine_id, thing_id, done_on, due_on, skipped, person_id FROM completions ORDER BY done_on, rowid',
@@ -241,12 +344,14 @@ export function applySync(db, ops) {
   return transaction(db, () => {
     for (const p of parsed) {
       try {
+        const text = describeChange(db, p);
         if (p.op === 'upsert') {
           upsertRow(db, p.collection, p.row);
           if (p.collection === 'routines') replaceRoutineSets(db, p.row.id, p.tags, p.places);
         } else {
           db.prepare(`DELETE FROM ${p.collection} WHERE id = ?`).run(p.id);
         }
+        if (text) logActivity(db, p.collection, text);
       } catch (err) {
         if (/FOREIGN KEY/i.test(err.message)) {
           throw new ConflictError(`Cannot change ${p.collection} ${p.id ?? p.row.id}: other records still refer to it.`);
@@ -283,4 +388,18 @@ export function ensureSeeded(db, today = todayIn('Europe/London')) {
     db.prepare("INSERT INTO meta (key, value) VALUES ('seeded', ?)").run(today);
   });
   return true;
+}
+
+/**
+ * One page of the activity log, newest first. `before` is the seq of the last entry the
+ * reader already has; omit it for the newest page.
+ */
+export function activityPage(db, { before = null, limit = 50 } = {}) {
+  const rows = before == null
+    ? db.prepare('SELECT seq, at, collection, text FROM activity ORDER BY seq DESC LIMIT ?').all(limit)
+    : db.prepare('SELECT seq, at, collection, text FROM activity WHERE seq < ? ORDER BY seq DESC LIMIT ?').all(before, limit);
+  return {
+    items: rows,
+    next: rows.length === limit ? rows[rows.length - 1].seq : null,
+  };
 }
