@@ -7,6 +7,7 @@ import { householdStats } from '/src/stats.js';
 import { group, LENSES, outstanding } from '/src/outstanding.js';
 import { status } from '/src/status.js';
 import { scheduleText } from '/src/describe.js';
+import { expandRoutines } from '/src/spaces.js';
 
 const TIME_ZONE = 'Europe/London';
 const HORIZONS = [7, 30];
@@ -55,8 +56,10 @@ function el(tag, attrs = {}, ...children) {
 }
 
 const persons = () => new Map(state.persons.map((p) => [p.id, p]));
+// Routines as the schedule sees them: targeted routines expanded to one per thing.
+const allRoutines = () => expandRoutines(state.routines, state.spaces, state.things);
 const outstandingItems = (horizonDays) => outstanding({
-  routines: state.routines,
+  routines: allRoutines(),
   completions: state.completions,
   today: state.today,
   horizonDays,
@@ -132,8 +135,8 @@ function statusCard(label, items, href, tone) {
 }
 
 function statusPage() {
-  const s = status({ routines: state.routines, completions: state.completions, today: state.today });
-  const stats = householdStats(state.routines, state.completions, state.today, 30);
+  const s = status({ routines: allRoutines(), completions: state.completions, today: state.today });
+  const stats = householdStats(allRoutines(), state.completions, state.today, 30);
   const rate = stats.onTimeRate == null ? 'no history yet' : `${Math.round(stats.onTimeRate * 100)}%`;
   const dateLabel = new Date(`${state.today}T12:00:00Z`).toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
@@ -219,6 +222,7 @@ function configureList() {
                   ' · ',
                   r.places.length ? r.places.join(', ') : 'Anywhere',
                   r.tags.length ? ` · ${r.tags.join(', ')}` : '',
+                  r.targetType ? ` · for each ${r.targetType}` : '',
                 ),
               ),
               el('div', { class: 'actions' },
@@ -250,6 +254,7 @@ function saveRoutine(existing, f, errorEl) {
     paused: f.paused.checked,
     places: splitList(f.places.value),
     tags: splitList(f.tags.value),
+    targetType: f.targetType.value.trim() || undefined,
     assigneeId: existing?.assigneeId ?? null,
   };
   if (existing) Object.assign(existing, routine);
@@ -260,7 +265,7 @@ function saveRoutine(existing, f, errorEl) {
 function deleteRoutine(existing) {
   if (!window.confirm(`Delete "${existing.title}" and its history? This can't be undone.`)) return;
   state.routines = state.routines.filter((r) => r.id !== existing.id);
-  state.completions = state.completions.filter((c) => c.routineId !== existing.id);
+  state.completions = state.completions.filter((c) => c.routineId !== existing.id && !c.routineId.startsWith(`${existing.id}@`));
   location.hash = '#/configure';
 }
 
@@ -287,6 +292,8 @@ function routineEditor(id) {
   f.intervalDays.value = r.intervalDays ?? 7;
   f.dayOfMonth.value = r.dayOfMonth ?? 1;
   f.paused.checked = !!r.paused;
+  f.targetType = el('input', { type: 'text', maxlength: '40', placeholder: 'e.g. Toilet' });
+  f.targetType.value = r.targetType ?? '';
   f.dayBoxes = WEEKDAYS.map(([n, label]) => {
     const box = el('input', { type: 'checkbox', value: String(n) });
     box.checked = (r.weekdays ?? []).includes(n);
@@ -304,6 +311,7 @@ function routineEditor(id) {
     add('Name', f.title),
     add('Places (comma-separated, e.g. Kitchen, Hall)', f.places, 'Leave empty if it isn\'t about a place.'),
     add('Tags (comma-separated, e.g. cleaning, laundry)', f.tags),
+    add('Repeat for each of these things in your spaces (optional, e.g. Toilet)', f.targetType, 'Each toilet on the Spaces page becomes its own task, with its space named.'),
     add('Schedule', f.kind),
     add('Every how many days? (for "Every N days")', f.intervalDays),
     el('div', {},
@@ -320,12 +328,89 @@ function routineEditor(id) {
   );
 }
 
+// ---- Spaces -----------------------------------------------------------------------------
+
+function spacesPage() {
+  const nameInput = el('input', { type: 'text', maxlength: '60', placeholder: 'e.g. Bedroom, Car, Front garden' });
+  const addSpace = (e) => {
+    e.preventDefault();
+    const name = nameInput.value.trim();
+    if (!name) return;
+    state.spaces.push({ id: `s${Date.now()}`, name });
+    render();
+  };
+  return el('div', {},
+    el('h1', {}, 'Spaces'),
+    el('p', { class: 'sub' },
+      'Every place that needs something doing to it, and the things in each one. A routine such as "Clean the toilet" can then say where each toilet is.'),
+    el('div', { class: 'banner' }, 'Changes aren\'t saved yet, like Configure.'),
+    el('form', { class: 'row', onsubmit: addSpace }, nameInput, el('button', { class: 'btn primary', type: 'submit' }, 'Add space')),
+    state.spaces.length === 0
+      ? el('div', { class: 'empty' }, 'No spaces yet.')
+      : el('div', {}, ...state.spaces.map(spaceCard)),
+  );
+}
+
+function spaceCard(space) {
+  const things = state.things.filter((t) => t.spaceId === space.id);
+  const typeInput = el('input', { type: 'text', maxlength: '40', placeholder: 'e.g. Toilet, Oven, Fridge' });
+  const addThing = (e) => {
+    e.preventDefault();
+    const type = typeInput.value.trim();
+    if (!type) return;
+    state.things.push({ id: `t${Date.now()}`, spaceId: space.id, type });
+    render();
+  };
+  return el('section', { class: 'group' },
+    el('header', {},
+      el('h2', {}, space.name),
+      el('span', {},
+        el('button', { class: 'link', type: 'button', onclick: () => renameSpace(space) }, 'Rename'),
+        ' · ',
+        el('button', { class: 'link danger', type: 'button', onclick: () => deleteSpace(space) }, 'Delete'),
+      ),
+    ),
+    el('div', { class: 'things' },
+      things.length
+        ? el('ul', { class: 'chips' }, ...things.map((t) => el('li', {},
+            t.type,
+            el('button', { class: 'x', type: 'button', 'aria-label': `Remove ${t.type}`, onclick: () => removeThing(t) }, '×'),
+          )))
+        : el('div', { class: 'hint' }, 'Nothing listed here yet.'),
+      el('form', { class: 'row', onsubmit: addThing }, typeInput, el('button', { class: 'btn', type: 'submit' }, 'Add thing')),
+    ),
+  );
+}
+
+function renameSpace(space) {
+  const name = window.prompt('Rename space', space.name);
+  if (name && name.trim()) {
+    space.name = name.trim();
+    render();
+  }
+}
+
+function deleteSpace(space) {
+  const count = state.things.filter((t) => t.spaceId === space.id).length;
+  const detail = count ? ` and its ${count} ${count === 1 ? 'thing' : 'things'}` : '';
+  if (!window.confirm(`Delete "${space.name}"${detail}?`)) return;
+  state.spaces = state.spaces.filter((s) => s.id !== space.id);
+  state.things = state.things.filter((t) => t.spaceId !== space.id);
+  render();
+}
+
+function removeThing(thing) {
+  state.things = state.things.filter((t) => t.id !== thing.id);
+  render();
+}
+
 // ---- routing ----------------------------------------------------------------------------
 
 function render() {
   const [page = 'status', arg] = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   let content;
   if (page === 'outstanding') content = outstandingPage(arg);
+  else if (page === 'spaces') content = spacesPage();
   else if (page === 'configure') content = arg ? routineEditor(arg) : configureList();
   else content = statusPage();
 

@@ -22,7 +22,7 @@ export function seed(today) {
     { id: 'freezer', title: 'Defrost the freezer', kind: 'interval', intervalDays: 180, tags: ['kitchen', 'food-safety', 'appliances'], places: ['Kitchen'], lastDoneAgo: 150 },
     { id: 'bins', title: 'Take the bins out', kind: 'interval', intervalDays: 7, tags: ['routine', 'outdoors'], places: ['Kitchen'], lastDoneAgo: 6, assigneeId: 'tony' },
     { id: 'bathroom', title: 'Clean the bathroom', kind: 'interval', intervalDays: 7, tags: ['bathroom', 'cleaning'], places: ['Bathroom'], lastDoneAgo: 6 },
-    { id: 'toilet', title: 'Clean the toilet', kind: 'interval', intervalDays: 7, tags: ['bathroom', 'cleaning', 'hygiene'], places: ['Bathroom'], lastDoneAgo: 8 },
+    { id: 'toilet', title: 'Clean the toilet', kind: 'interval', intervalDays: 7, tags: ['bathroom', 'cleaning', 'hygiene'], places: [], targetType: 'Toilet', lastDoneAgo: 8 },
     { id: 'towels', title: 'Wash the towels', kind: 'interval', intervalDays: 7, tags: ['laundry', 'bathroom'], places: ['Bathroom', 'Laundry'], lastDoneAgo: 3 },
     { id: 'hoover', title: 'Hoover', kind: 'interval', intervalDays: 7, tags: ['cleaning', 'floors'], places: ['Living room', 'Bedroom', 'Kitchen', 'Hall'], lastDoneAgo: 9, assigneeId: 'tony' },
     { id: 'mop', title: 'Mop the floors', kind: 'interval', intervalDays: 14, tags: ['cleaning', 'floors'], places: ['Kitchen', 'Bathroom', 'Hall'], lastDoneAgo: 4 },
@@ -35,6 +35,22 @@ export function seed(today) {
     { id: 'lint', title: 'Empty the tumble dryer lint', kind: 'interval', intervalDays: 3, tags: ['laundry', 'appliances'], places: ['Laundry'], lastDoneAgo: 3 },
   ];
 
+  // Spaces and things: two toilets, in two spaces. "Clean the toilet" expands to one task each.
+  const spaces = [
+    { id: 'bathroom', name: 'Bathroom' },
+    { id: 'downstairs-loo', name: 'Downstairs loo' },
+    { id: 'kitchen', name: 'Kitchen' },
+    { id: 'bedroom', name: 'Bedroom' },
+    { id: 'living-room', name: 'Living room' },
+    { id: 'hall', name: 'Hall' },
+    { id: 'laundry', name: 'Laundry' },
+    { id: 'garden', name: 'Garden' },
+  ];
+  const things = [
+    { id: 't-toilet-bathroom', spaceId: 'bathroom', type: 'Toilet' },
+    { id: 't-toilet-downstairs', spaceId: 'downstairs-loo', type: 'Toilet' },
+  ];
+
   const startDate = addDays(today, -400);
   const routines = spec.map(({ lastDoneAgo, ...routine }) => ({
     ...routine,
@@ -43,11 +59,15 @@ export function seed(today) {
     paused: false,
   }));
 
-  // One completion per routine, done on time. Enough to show overdue, due and upcoming states.
-  const completions = spec.map((r) => {
+  // One completion per routine, done on time. A targeted routine gets one per matching thing,
+  // keyed the same way the expanded routine is (see spaces.js).
+  const completions = spec.flatMap((r) => {
     const doneOn = addDays(today, -r.lastDoneAgo);
-    return { routineId: r.id, doneOn, dueOn: doneOn, skipped: false, personId: null };
+    const ids = r.targetType
+      ? things.filter((t) => t.type.toLowerCase() === r.targetType.toLowerCase()).map((t) => `${r.id}@${t.id}`)
+      : [r.id];
+    return ids.map((routineId) => ({ routineId, doneOn, dueOn: doneOn, skipped: false, personId: null }));
   });
 
-  return { persons, routines, completions };
+  return { persons, routines, completions, spaces, things };
 }
