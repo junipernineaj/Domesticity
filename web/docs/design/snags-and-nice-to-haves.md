@@ -75,3 +75,18 @@ Snags for family members' homes, such as a mother-in-law's kitchen or an aunt's 
 ## Open questions
 
 None open.
+
+## Annual renewals and holidays
+
+Recorded 2 Nov 2026, from Tony's request. Not built.
+
+- Annual routines cover renewals of subscriptions and bills, such as car insurance and house insurance. They are yearly, not every N days.
+- Holidays sit under Nice to haves. The household takes a set number a year, for example three, each on a target date or range. A holiday stays outstanding until it is planned and booked.
+- Holidays show on the Outstanding dashboard, which changes the rule that issues stay off it (ADR-0009).
+
+### Open questions
+
+- [ ] Should annual routines use a yearly schedule on a set date, as proposed, or an interval of 365 days?
+- [ ] Should a renewal have a reminder some days before it is due, for example 30?
+- [ ] Do the holidays for the next year appear automatically each January, or are they added by hand?
+- [ ] Is there one step from Not planned to Booked, or two, Planned and then Booked?
