@@ -9,8 +9,8 @@ import { outstanding } from './outstanding.js';
  * @param {string} args.today
  * @param {number} [args.comingUpDays]  how far ahead "coming up" looks (default 7)
  */
-export function status({ routines, completions, today, comingUpDays = 7 }) {
-  const items = outstanding({ routines, completions, today, horizonDays: comingUpDays });
+export function status({ routines, completions, today, comingUpDays = 7, holidays = [] }) {
+  const items = outstanding({ routines, completions, today, horizonDays: comingUpDays, holidays });
   return {
     overdue: items.filter((i) => i.days < 0),
     dueToday: items.filter((i) => i.days === 0),
