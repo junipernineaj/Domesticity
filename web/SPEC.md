@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.15, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before. v0.14: calendar view, proposed. v0.15: booked holidays are busy days; range a year, possibly 18 months)
+Status: Draft v0.16, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before. v0.14: calendar view, proposed. v0.15: booked holidays are busy days; range a year, possibly 18 months. v0.16: load is the count of tasks due in a day; green 0, amber 1 to 2, red 3 to 4)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -165,7 +165,7 @@ Not built. Recorded from Tony's request on 2 Nov 2026.
 - Each day shows the items due on it, and selecting a day lists them.
 - **Free days** are days with nothing due. The main use is finding free weekends for friends and guests.
 - The calendar needs the future due dates of every routine and renewal. These are projected from the schedule and last completion, using the same rules as section 5. Projections shift when a routine is done early or late, so the calendar is always a forecast, not a fixed plan.
-- Load colours are a proposal: none (free), light, busy, heavy. The measure and thresholds are not yet set; they will be decided from use.
+- Load is the number of tasks due on a day. Green is 0 (free), amber is 1 to 2, and red is 3 to 4. Days with 5 or more tasks are not yet decided.
 - Snags are not on the calendar. They have no date.
 - Booked holidays count as busy days.
 - The calendar shows a year ahead, possibly 18 months.
