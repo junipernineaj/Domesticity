@@ -18,7 +18,7 @@ ADR-0009 kept snags and nice to haves apart from routines and fixed the issue ki
 ## Decision
 
 1. **A `holidays` collection,** not an issue kind. Each holiday has a name, a fixed month and day, an optional note, and the date it is booked for. ADR-0009's two issue kinds stay as they are.
-2. **Listed under Nice to haves,** in a "Holiday plans" section above the issues. The section shows the next date, planned or booked, a note, and a button to book or unbook.
+2. **Its own Holidays page,** in the navigation next to Snags. Each holiday shows the next date, planned or booked, a note, and a button to book or unbook. Holidays are not listed under Nice to haves: they are a separate category (amended 2 Nov 2026).
 3. **Next occurrence.** A holiday falls next on its day, this year if the day is still ahead, otherwise next year.
 4. **Booking.** Booking sets `booked_for` to the next occurrence. The server refuses a date that is not the holiday's own day. A booking counts only while it matches the next occurrence, so it lapses by itself once the day has passed and the holiday is planned again for next year.
 5. **Outstanding.** A planned holiday is outstanding. It appears in the 7 and 30 day views when it is in range, and in Next quarter and Next year on Cadence once it is further off. It is grouped under "Holidays" in the Cadence lens. A booked holiday is not outstanding.

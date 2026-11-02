@@ -158,7 +158,7 @@ Renewals are built (section 5.11, ADR-0014). Holiday plans are built (ADR-0015).
   - Each renewal has a reminder set before it is due. The default lead time is 30 days, and each item can change it. Reminders use ADR-0004. Built as section 5.11 and ADR-0014. The reminders themselves are not sent yet.
   - In the Cadence lens, renewals form their own group, Renewals, so they are not mixed with routines that repeat in days.
   - They appear in Outstanding like other routines.
-- **Holiday plans:** occasions held once a year, under Nice to haves. The household has three by default:
+- **Holiday plans:** occasions held once a year, on their own Holidays page next to Snags and Nice to haves. The household has three by default:
   - April: Tony's Birthday
   - September: Wedding Anniversary
   - December: Christmas

@@ -597,6 +597,15 @@ function holidayRow(item) {
   );
 }
 
+// The Holidays page: its own category, alongside Snags and Nice to haves (ADR-0015).
+function holidayPage() {
+  return el('div', {},
+    el('h1', {}, 'Holidays'),
+    el('p', { class: 'sub' }, 'Each holiday falls on the same day every year. A holiday stays outstanding until it is booked for its next date.'),
+    holidayPlans(),
+  );
+}
+
 function holidayPlans() {
   return el('section', { class: 'group' },
     el('header', {}, el('h2', {}, 'Holiday plans'), el('span', {}, 'planned until booked')),
@@ -645,7 +654,6 @@ function issuesPage(arg) {
     el('p', { class: 'sub' },
       'Snags are things that are wrong, Red first. Nice to haves are ideas for later, cheapest and easiest first. Done closes an item, and Reopen brings it back.'),
     issueForm(view.id === 'nice' ? 'nice' : 'snag'),
-    view.id === 'nice' ? holidayPlans() : null,
     el('div', { class: 'row' }, viewBar),
     body,
   );
@@ -920,6 +928,7 @@ function render() {
   let content;
   if (page === 'outstanding') content = outstandingPage(arg);
   else if (page === 'calendar') content = arg ? calendarDayPage(arg) : calendarPage();
+  else if (page === 'holidays') content = holidayPage();
   else if (page === 'spaces') content = spacesPage();
   else if (page === 'issues') content = issuesPage(arg);
   else if (page === 'activity') content = activityView();
