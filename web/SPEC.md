@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.2, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added)
+Status: Draft v0.3, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -104,6 +104,20 @@ The home screen for the web app. It shows routines due within a chosen horizon (
 - **Sorting:** groups with the most overdue items come first (lenses without a fixed order). Items inside a group are sorted by due day, then title.
 
 The lenses are pure functions of the outstanding list (`web/src/outstanding.js`), tested in `web/test/dashboard.test.js`.
+
+### 6.9 Snags and nice to haves
+Routines come back on a schedule. Problems and ideas don't: they stay open until someone deals with them, so they are kept as a separate list (ADR-0009).
+
+- **Snag:** something wrong or broken, such as "the tap is dripping in the utility room".
+- **Nice to have:** an improvement for later, such as "make curtains to keep the cold out of the lounge".
+- Each issue has a kind, a title, an optional space, the day it was added, and an optional done day. An issue is open until it has a done day.
+- **Done** closes an issue and removes it from the lists. Reopening is not in v1.
+- **Status page:** shows the open count for snags and for nice to haves, with the first few titles of each.
+- **Issues page:** lists open issues grouped by space (oldest first), with a form to add one. Filter to snags or nice to haves.
+- Issues are not routines. They don't appear in Outstanding, don't send reminders, and don't affect the on-time rate.
+- Deleting a space keeps its issues. They move to "Nowhere in particular".
+
+The logic is in `web/src/issues.js`, tested in `web/test/issues.test.js`.
 
 ### 6.5 Household (People)
 - Add, rename, recolour and delete people.

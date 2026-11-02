@@ -8,6 +8,7 @@ import { group, LENSES, outstanding } from '/src/outstanding.js';
 import { status } from '/src/status.js';
 import { scheduleText } from '/src/describe.js';
 import { expandRoutines } from '/src/spaces.js';
+import { groupIssuesBySpace, ISSUE_KINDS, issueCounts, openIssues } from '/src/issues.js';
 
 const TIME_ZONE = 'Europe/London';
 const HORIZONS = [7, 30];
@@ -134,6 +135,20 @@ function statusCard(label, items, href, tone) {
   );
 }
 
+function issueCard(label, kind, href, tone) {
+  const count = issueCounts(state.issues)[kind === 'snag' ? 'snags' : 'nice'];
+  const open = openIssues(state.issues, kind);
+  return el('a', { class: `card ${tone}`, href },
+    el('div', { class: 'count' }, count),
+    el('div', { class: 'label' }, `Open ${label.toLowerCase()}`),
+    open.length
+      ? el('ul', { class: 'preview' },
+          ...open.slice(0, 3).map((i) => el('li', {}, i.title)),
+          open.length > 3 ? el('li', {}, `+${open.length - 3} more`) : null)
+      : el('div', { class: 'preview' }, 'Nothing open'),
+  );
+}
+
 function statusPage() {
   const s = status({ routines: allRoutines(), completions: state.completions, today: state.today });
   const stats = householdStats(allRoutines(), state.completions, state.today, 30);
@@ -149,6 +164,10 @@ function statusPage() {
       statusCard('Overdue', s.overdue, '#/outstanding/overdue', 'late'),
       statusCard('To do today', s.dueToday, '#/outstanding/day', 'today'),
       statusCard('Coming up', s.comingUp, '#/outstanding/day', 'soon'),
+    ),
+    el('div', { class: 'cards', style: 'margin-top: 12px' },
+      issueCard('Snags', 'snag', '#/issues/snag', 'late'),
+      issueCard('Nice to haves', 'nice', '#/issues/nice', 'soon'),
     ),
     el('p', { class: 'sub', style: 'margin-top: 16px' }, `On time over the last 30 days: ${rate}`),
     el('div', { class: 'row' },
@@ -393,14 +412,112 @@ function renameSpace(space) {
 function deleteSpace(space) {
   const count = state.things.filter((t) => t.spaceId === space.id).length;
   const detail = count ? ` and its ${count} ${count === 1 ? 'thing' : 'things'}` : '';
-  if (!window.confirm(`Delete "${space.name}"${detail}?`)) return;
+  if (!window.confirm(`Delete "${space.name}"${detail}? Its snags and nice to haves move to "Nowhere in particular".`)) return;
   state.spaces = state.spaces.filter((s) => s.id !== space.id);
   state.things = state.things.filter((t) => t.spaceId !== space.id);
+  state.issues = state.issues.map((i) => (i.spaceId === space.id ? { ...i, spaceId: null } : i));
   render();
 }
 
 function removeThing(thing) {
   state.things = state.things.filter((t) => t.id !== thing.id);
+  render();
+}
+
+// ---- Snags and nice to haves ------------------------------------------------------------
+
+function issuesPage(arg) {
+  const kind = ISSUE_KINDS.find((k) => k.id === arg)?.id ?? null;
+  const groups = groupIssuesBySpace(openIssues(state.issues, kind), state.spaces);
+
+  const viewBar = el('div', { class: 'segmented', role: 'group', 'aria-label': 'Kind' },
+    el('a', { href: '#/issues', 'aria-current': kind ? false : 'page' }, 'All'),
+    ...ISSUE_KINDS.map((k) => el('a', {
+      href: `#/issues/${k.id}`,
+      'aria-current': kind === k.id ? 'page' : false,
+    }, k.plural)),
+  );
+
+  const body = groups.length === 0
+    ? el('div', { class: 'empty' }, 'Nothing open here.')
+    : el('div', {}, ...groups.map((g) => el('section', { class: 'group' },
+        el('header', {}, el('h2', {}, g.key), el('span', {}, `${g.items.length} open`)),
+        el('ul', { class: 'items' }, ...g.items.map(issueRow)),
+      )));
+
+  return el('div', {},
+    el('h1', {}, 'Snags and nice to haves'),
+    el('p', { class: 'sub' },
+      'A snag is something that is wrong. A nice to have is an idea for later. Both stay on the list until you mark them done.'),
+    el('div', { class: 'banner' }, 'Changes aren\'t saved yet, like Configure.'),
+    issueForm(kind),
+    el('div', { class: 'row' }, viewBar),
+    body,
+  );
+}
+
+function issueRow(issue) {
+  const kindLabel = ISSUE_KINDS.find((k) => k.id === issue.kind).label;
+  return el('li', {},
+    el('div', {},
+      el('div', { class: 'title' }, issue.title),
+      el('div', { class: 'meta' }, kindLabel, ` · added ${issue.addedOn}`),
+    ),
+    el('div', { class: 'actions' },
+      el('button', { class: 'done', onclick: () => closeIssue(issue) }, 'Done'),
+      el('button', { onclick: () => removeIssue(issue) }, 'Remove'),
+    ),
+  );
+}
+
+function issueForm(defaultKind) {
+  const titleInput = el('input', { type: 'text', maxlength: '120', placeholder: 'e.g. Tap is dripping in the utility room' });
+  const kindSelect = el('select', {}, ...ISSUE_KINDS.map((k) => el('option', { value: k.id }, k.label)));
+  kindSelect.value = defaultKind ?? 'snag';
+  const spaceSelect = el('select', {},
+    el('option', { value: '' }, 'Nowhere in particular'),
+    ...state.spaces.map((s) => el('option', { value: s.id }, s.name)),
+  );
+  const errorEl = el('div', { class: 'error' });
+
+  return el('form', {
+    class: 'editor',
+    onsubmit: (e) => {
+      e.preventDefault();
+      const title = titleInput.value.trim();
+      if (!title) {
+        errorEl.textContent = 'Say what it is.';
+        return;
+      }
+      state.issues.push({
+        id: `i${Date.now()}`,
+        kind: kindSelect.value,
+        title,
+        spaceId: spaceSelect.value || null,
+        addedOn: state.today,
+        doneOn: null,
+      });
+      render();
+    },
+  },
+    el('label', {}, 'What is it?', titleInput),
+    el('div', { class: 'row' },
+      el('label', {}, 'Type', kindSelect),
+      el('label', {}, 'Where', spaceSelect),
+    ),
+    errorEl,
+    el('div', { class: 'row' }, el('button', { class: 'btn primary', type: 'submit' }, 'Add')),
+  );
+}
+
+function closeIssue(issue) {
+  issue.doneOn = state.today;
+  render();
+}
+
+function removeIssue(issue) {
+  if (!window.confirm(`Remove "${issue.title}"?`)) return;
+  state.issues = state.issues.filter((i) => i.id !== issue.id);
   render();
 }
 
@@ -411,6 +528,7 @@ function render() {
   let content;
   if (page === 'outstanding') content = outstandingPage(arg);
   else if (page === 'spaces') content = spacesPage();
+  else if (page === 'issues') content = issuesPage(arg);
   else if (page === 'configure') content = arg ? routineEditor(arg) : configureList();
   else content = statusPage();
 
