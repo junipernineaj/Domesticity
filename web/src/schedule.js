@@ -3,7 +3,7 @@
 import { addDays, daysInMonth, diffDays, parts, weekday, ymd } from './dates.js';
 
 /**
- * @typedef {'interval'|'weekly'|'monthly'} Kind
+ * @typedef {'interval'|'weekly'|'monthly'|'renewal'} Kind
  * @typedef {Object} Routine
  * @property {string} id
  * @property {string} title
@@ -12,6 +12,8 @@ import { addDays, daysInMonth, diffDays, parts, weekday, ymd } from './dates.js'
  * @property {number[]} [weekdays]    for 'weekly'; 1 = Sunday ... 7 = Saturday
  * @property {number} [dayOfMonth]    for 'monthly'; 1-31, falls back to month end
  * @property {string} startDate       first due day when nothing has been done yet
+ * @property {number} [everyMonths]  for 'renewal'; 3, 6 or 12. The set date is startDate (SPEC 5.11)
+ * @property {number} [leadDays]      for 'renewal'; reminder lead time, default 30
  * @property {boolean} [paused]
  *
  * @typedef {Object} Completion
@@ -58,7 +60,31 @@ export function nextDue(routine, completions) {
     if (afterCovered > from) from = afterCovered;
   }
 
+  if (routine.kind === 'renewal') return renewalSlot(from, routine);
   return routine.kind === 'weekly' ? weeklySlot(from, routine) : monthlySlot(from, routine.dayOfMonth ?? 1);
+}
+
+/**
+ * The first renewal date on or after `from` (SPEC 5.11). The set date (startDate) fixes both the
+ * day of the month and which months the renewal falls in: every `everyMonths` months from its month.
+ */
+export function renewalSlot(from, routine) {
+  const set = parts(routine.startDate);
+  const every = routine.everyMonths ?? 12;
+  let { year, month } = parts(from);
+  for (let i = 0; i < 12 * 5; i++) {
+    const monthsFromSet = (year - set.year) * 12 + (month - set.month);
+    if (((monthsFromSet % every) + every) % every === 0) {
+      const slot = ymd(year, month, Math.min(set.day, daysInMonth(year, month)));
+      if (slot >= from) return slot;
+    }
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return from;
 }
 
 /** First chosen weekday on or after `from`. */

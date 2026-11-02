@@ -50,15 +50,26 @@ export function migrate(db, path) {
 
   for (const file of pending) {
     const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+    // A migration that replaces a parent table (ADR-0014) must run with foreign keys off, or
+    // dropping the table would cascade into its children. The pragma only works outside a
+    // transaction, so it is set here and checked before the commit.
+    const fkOff = /^--\s*migrate:\s*foreign keys off/m.test(sql);
+    if (fkOff) db.exec('PRAGMA foreign_keys = OFF');
     db.exec('BEGIN');
     try {
       db.exec(sql);
+      if (fkOff) {
+        const broken = db.prepare('PRAGMA foreign_key_check').all();
+        if (broken.length > 0) throw new Error(`${broken.length} broken references`);
+      }
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)')
         .run(file, new Date().toISOString());
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');
       throw new Error(`Migration ${file} failed: ${err.message}`);
+    } finally {
+      if (fkOff) db.exec('PRAGMA foreign_keys = ON');
     }
   }
 }
