@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.1, 2 Nov 2026
+Status: Draft v0.2, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -32,7 +32,9 @@ One owner (Tony). Optionally, later, household members who are added as People a
 
 ## 4. Core concepts
 
-- **Routine**: a recurring job with a title, icon, room, notes, a schedule, reminder settings, and a paused flag.
+- **Routine**: a recurring job with a title, icon, notes, tags, places, a schedule, reminder settings, and a paused flag.
+- **Tag**: a free-form category for a routine ("cleaning", "bedding", "food-safety"). A routine can have none or many. There is no fixed list and no hierarchy. See ADR-0007.
+- **Place**: a room or area a routine touches ("Kitchen", "Hall", "Garden"). A routine can have none ("Anywhere") or many: "Hoover" covers four places.
 - **Schedule**: one of three kinds:
   - *Every N days*: interval routines.
   - *Weekly*: on chosen weekdays.
@@ -45,7 +47,7 @@ One owner (Tony). Optionally, later, household members who are added as People a
 
 These rules are the definition of correct behaviour. They match the iOS app. Every rule below must have at least one test in the golden suite (section 11).
 
-**5.1 Every N days.** Next due = last completed day + N days, where N ≥ 1. Completing late does not create a backlog; the next due is counted from the day it was actually done. A routine with no completions is due on its start date.
+**5.1 Every N days.** Next due = last completed day + N days, where N ≥ 1. Completing late does not create a backlog; the next due is counted from the day it was actually done. A routine with no completions is due on its start date. The "last completed day" is the most recent completion of any kind, skips included, because a skip moves the routine on (this matches the iOS code, `Chore.nextDue`). Weekly and monthly routines use the same rule through section 5.4.
 
 **5.2 Weekly.** Due on the chosen weekdays. A completion covers the slot that was due when it was recorded. The next slot is the first chosen weekday strictly after the covered slot. If no weekdays are chosen, use the weekday of the start date.
 
@@ -73,10 +75,10 @@ These rules are the definition of correct behaviour. They match the iOS app. Eve
 - Empty state links to starter suggestions.
 
 ### 6.2 Routines
-- List of all routines, grouped by room.
+- List of all routines. Grouping uses the same lenses as the Outstanding dashboard (section 6.8), not a fixed room hierarchy.
 - Create, edit, pause, resume, and delete a routine.
 - Deleting a routine deletes its completions (with a confirmation). Completions are never deleted otherwise (see GUARDRAILS).
-- Editor fields: title, icon, room, schedule kind and parameters with preset buttons, reminder on/off and time, assignee, notes, pause toggle.
+- Editor fields: title, icon, tags (existing names offered first), places (multiple), schedule kind and parameters with preset buttons, reminder on/off and time, assignee, notes, pause toggle.
 
 ### 6.3 Starter suggestions
 - About 30 templates grouped by room, as in the iOS app's `Templates.swift`.
@@ -86,6 +88,22 @@ These rules are the definition of correct behaviour. They match the iOS app. Eve
 - Overall on-time rate over 30 days, with the count of overdue routines.
 - Per-routine streak and on-time rate.
 - Weekly chart for the last 12 weeks (on time vs late).
+
+### 6.8 Outstanding dashboard
+The home screen for the web app. It shows routines due within a chosen horizon (7 or 30 days), overdue ones included, most urgent first.
+
+- **Summary line:** overdue count, due-today count, and the 30-day on-time rate (section 5.9).
+- **Lenses:** the same outstanding items grouped in different ways. The v1 lenses are:
+  - *When*: Overdue, Today, Tomorrow, In 2–7 days, In 8–30 days.
+  - *Category*: one heading per tag.
+  - *Place*: one heading per place, or "Anywhere".
+  - *Person*: one heading per assignee, or "Anyone".
+  - *Cadence*: Every 1–3 days, Every 4–14 days, Every 15–45 days, Every 46+ days, Weekly on set days, Monthly on a set day.
+- **Multi-membership:** a routine appears under every heading that applies. The page says so, and group counts are not presented as a total.
+- **Actions:** Done and Skip on each item, which record a completion and refresh the list.
+- **Sorting:** groups with the most overdue items come first (lenses without a fixed order). Items inside a group are sorted by due day, then title.
+
+The lenses are pure functions of the outstanding list (`web/src/outstanding.js`), tested in `web/test/dashboard.test.js`.
 
 ### 6.5 Household (People)
 - Add, rename, recolour and delete people.
@@ -110,7 +128,7 @@ person
 
 routine
   id, title text not null, icon text not null default 'sparkles',
-  room text not null default 'General', notes text not null default '',
+  notes text not null default '',
   schedule_kind text not null check (schedule_kind in ('interval','weekly','monthly')),
   interval_days int not null default 7 check (interval_days >= 1),
   weekday_mask int not null default 0 check (weekday_mask between 0 and 127),
@@ -120,6 +138,22 @@ routine
   reminder_time time not null default '09:00',
   paused boolean not null default false,
   assignee_id uuid references person(id) on delete set null
+
+tag
+  id, name text unique not null           -- free-form, case-insensitive uniqueness
+
+routine_tag
+  routine_id uuid not null references routine(id) on delete cascade,
+  tag_id uuid not null references tag(id) on delete cascade,
+  primary key (routine_id, tag_id)
+
+place
+  id, name text unique not null           -- room or area, free-form
+
+routine_place
+  routine_id uuid not null references routine(id) on delete cascade,
+  place_id uuid not null references place(id) on delete cascade,
+  primary key (routine_id, place_id)
 
 completion
   id, routine_id uuid not null references routine(id) on delete cascade,
@@ -145,6 +179,8 @@ reminder_log
 Notes:
 - Dates that matter for scheduling (`done_on`, `due_on`, `start_date`) are `date`, not `timestamptz`. This avoids timezone bugs in the due arithmetic. `done_at` is kept for history only.
 - `weekday_mask` uses the same bit layout as iOS: bit `(weekday - 1)` where 1 = Sunday.
+- Tags and places are many-to-many (ADR-0007). A tag or place that no routine uses is removed. Renaming a tag or place changes it for every routine that has it.
+- The iOS app's single `room` maps to one place per routine when data is migrated. The web app has no data to migrate yet.
 
 ## 8. Reminders
 
@@ -160,7 +196,7 @@ Notes:
 
 ### 8.3 Content
 - Title: the routine title.
-- Body: "Due today · {room}", "Still to do – it was due yesterday", or "Overdue – was due {date}".
+- Body: "Due today · {places, or Anywhere}", "Still to do – it was due yesterday", or "Overdue – was due {date}".
 - Tag: `chores`, so new reminders replace old ones for the same routine.
 
 ### 8.4 Badge
@@ -187,6 +223,9 @@ Notes:
 | Badge count | Yes | Where supported |
 | CloudKit household sharing | No | Future (ADR-0005) |
 | Local (offline) data | No | Connected use assumed (ADR-0003) |
+| Rooms (single room per routine) | Changed | Tags and places, many per routine (ADR-0007) |
+| Routines grouped by room | Changed | Lenses on the Outstanding dashboard (section 6.8) |
+| Outstanding dashboard | New | Not in iOS: multi-lens view of what's due |
 
 ## 10. Architecture overview
 
@@ -214,6 +253,6 @@ Decision records for each of these are in `docs/adr/`.
 
 ## 12. Open questions
 
-1. Exact stack for the web client (ADR-0006 proposes one).
+1. Stack for the API, scheduler and full client (ADR-0006: Phase 0 is dependency-free JavaScript; TypeScript or Python for the rest is still open).
 2. Whether the iOS app's reminder-timing rule (overdue daily at the reminder time) is what Tony still wants, or whether overdue should be a weekly nag.
 3. Where the Web Push VAPID private key is stored on junipernine2 (environment file with restricted permissions is the working assumption).
