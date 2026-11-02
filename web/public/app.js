@@ -1,6 +1,6 @@
 // Domesticity web: Status (landing), Outstanding (views), Configure (routines), Spaces, Snags.
 // Data is stored on the server (ADR-0011). The page keeps a working copy and sends changes back.
-import { todayIn } from '/src/dates.js';
+import { addDays, todayIn } from '/src/dates.js';
 import { nextDue, completionsFor } from '/src/schedule.js';
 import { householdStats } from '/src/stats.js';
 import { group, inRange, LENSES, LONG_RANGES, outstanding } from '/src/outstanding.js';
@@ -12,7 +12,7 @@ import {
 } from '/src/issues.js';
 import { scoreOf } from '/src/issues-rules.js';
 import { isBooked, nextOccurrence } from '/src/holidays.js';
-import { buildCalendar, LOAD_LEVELS, loadLevel, monthsInRange } from '/src/calendar.js';
+import { buildCalendar, CALENDAR_DAYS, LOAD_LEVELS, loadLevel, monthsInRange } from '/src/calendar.js';
 
 const TIME_ZONE = 'Europe/London';
 const HORIZONS = [7, 30];
@@ -178,17 +178,16 @@ function issueCard(label, kind, href, tone) {
 
 // ---- Calendar (ADR-0016) ----------------------------------------------------------------
 
-function calendarMonth({ year, month, weeks }, cal, selected) {
+function calendarMonth({ year, month, weeks }, cal) {
   const title = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const heads = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => el('div', { class: 'cal-head' }, d));
   const cells = weeks.flat().map((date) => {
     if (!date) return el('div', {});
     const count = (cal.get(date) ?? []).length;
-    return el('button', {
+    return el('a', {
       class: `cal-day load-${loadLevel(count)}`,
-      'aria-pressed': date === selected ? 'true' : 'false',
+      href: `#/calendar/${date}`,
       'aria-label': `${formatDay(date)}, ${count} ${count === 1 ? 'task' : 'tasks'}`,
-      onclick: () => { state.calDay = date; render(); },
     }, String(Number(date.slice(8))));
   });
   return el('section', { class: 'group' },
@@ -198,29 +197,47 @@ function calendarMonth({ year, month, weeks }, cal, selected) {
 }
 
 function calendarPage() {
-  const cal = buildCalendar({
-    routines: allRoutines(), completions: state.completions, holidays: state.holidays, today: state.today,
-  });
-  const selected = state.calDay ?? state.today;
-  const items = cal.get(selected) ?? [];
+  const cal = calendarData();
   const legend = el('div', { class: 'cal-legend' },
     ...LOAD_LEVELS.map((l) => el('span', { class: `load-${l.id}` }, l.label)));
   return el('div', {},
     el('h1', {}, 'Calendar'),
     el('p', { class: 'sub' }, 'Each day is coloured by how many tasks fall due, from a forecast of the next year. Tap a day to see what is on it.'),
     legend,
-    ...monthsInRange(state.today).map((m) => calendarMonth(m, cal, selected)),
-    el('section', { class: 'group' },
-      el('header', {},
-        el('h2', {}, formatDay(selected)),
-        el('span', {}, items.length === 0 ? 'Free day' : `${items.length} ${items.length === 1 ? 'task' : 'tasks'}`)),
-      items.length === 0
-        ? el('div', { class: 'empty' }, 'Nothing due.')
-        : el('ul', { class: 'items' }, ...items.map((i) => el('li', {},
+    ...monthsInRange(state.today).map((m) => calendarMonth(m, cal)),
+  );
+}
+
+function calendarData() {
+  return buildCalendar({
+    routines: allRoutines(), completions: state.completions, holidays: state.holidays, today: state.today,
+  });
+}
+
+// One day: what is due on it, and how busy it is. Reached by tapping a day on the calendar.
+function calendarDayPage(date) {
+  const inRange = date >= state.today && date <= addDays(state.today, CALENDAR_DAYS - 1);
+  const items = inRange ? calendarData().get(date) ?? [] : [];
+  const level = LOAD_LEVELS.find((l) => l.id === loadLevel(items.length));
+  const routines = items.filter((i) => i.kind === 'routine').length;
+  const holidays = items.length - routines;
+  const counts = [
+    routines ? `${routines} ${routines === 1 ? 'routine' : 'routines'}` : null,
+    holidays ? `${holidays} booked ${holidays === 1 ? 'holiday' : 'holidays'}` : null,
+  ].filter(Boolean).join(' and ');
+  return el('div', {},
+    el('a', { class: 'btn', href: '#/calendar' }, '← Back to calendar'),
+    el('h1', { style: 'margin-top: 12px' }, formatDay(date)),
+    el('p', { class: 'sub' }, !inRange
+      ? 'This day is outside the calendar range.'
+      : items.length === 0 ? 'A free day. Nothing is due.' : `${counts}. Load: ${level.label.toLowerCase()}.`),
+    inRange && items.length > 0
+      ? el('section', { class: 'group' },
+        el('ul', { class: 'items' }, ...items.map((i) => el('li', {},
           el('div', {}, el('div', { class: 'title' }, i.title)),
           el('div', { class: 'meta' }, i.kind === 'holiday' ? 'Booked holiday' : 'Routine'),
-        ))),
-    ),
+        ))))
+      : null,
   );
 }
 
@@ -900,7 +917,7 @@ function render() {
   const [page = 'status', arg] = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   let content;
   if (page === 'outstanding') content = outstandingPage(arg);
-  else if (page === 'calendar') content = calendarPage();
+  else if (page === 'calendar') content = arg ? calendarDayPage(arg) : calendarPage();
   else if (page === 'spaces') content = spacesPage();
   else if (page === 'issues') content = issuesPage(arg);
   else if (page === 'activity') content = activityView();

@@ -80,8 +80,8 @@
     .cal-body { padding: 10px 14px 14px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
     .cal-head { font-size: .75rem; color: var(--muted); text-align: center; padding-bottom: 2px; }
-    .cal-day { min-height: 38px; border: 0; border-radius: 6px; color: #fff; font: inherit; font-size: .9rem; cursor: pointer; }
-    .cal-day[aria-pressed=true] { outline: 3px solid var(--ink); outline-offset: 1px; }
+    .cal-day { display: flex; align-items: center; justify-content: center; min-height: 38px; border-radius: 6px; color: #fff; font-size: .9rem; text-decoration: none; }
+    .cal-day:hover, .cal-day:focus-visible { outline: 3px solid var(--ink); outline-offset: 1px; }
     .load-free { background: var(--free); }
     .load-light { background: var(--today); }
     .load-busy { background: var(--late); }
