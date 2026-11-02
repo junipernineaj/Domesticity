@@ -59,12 +59,14 @@ Three ways of ranking an idea were considered. Each one adds a little more to ke
 
 Recorded 2 Nov 2026, after review with Tony.
 
-- Snags have no deadline. They have a severity.
-- Severity has three levels: Unsafe, Needs fixing soon, and Cosmetic. These are the two layers of categorisation: the severity level, and the RAG colour that goes with it (Unsafe Red, Needs fixing soon Amber, Cosmetic Green). The RAG colour is used for colour coding and for ordering. This pairing is our reading and needs confirming.
+- Snags have no deadline.
+- Snags have two separate fields. Severity is Cosmetic, Needs fixing soon, or Unsafe. RAG is Red, Amber, or Green. They are set independently. They usually correlate, but a snag can be Unsafe and Amber.
 - Every snag is assigned to Household or External (a contractor).
-- Nice to haves are not RAG rated. They are probably ranked by cost and/or effort.
+- Nice to haves are not RAG rated. They are scored with two sliders, Cost and Effort. The score is the average of the two.
 - Snags and nice to haves can be reopened, because a fix may not work.
 - The planned status with a date is not wanted, since snags have no deadline. The one-off task idea goes with it.
+- An activity log shows every change, newest first. It records adding an item or routine, completing or skipping a routine, editing, deleting, and opening or reopening a snag or nice to have. Entries are never removed.
+- Snags and nice to haves can have an image attached, so the problem or idea can be seen. Images are stored on junipernine2 and served behind the same login as the rest of the app.
 
 ## Parked idea: family snags
 
@@ -72,6 +74,7 @@ Snags for family members' homes, such as a mother-in-law's kitchen or an aunt's 
 
 ## Open questions
 
-- [ ] Is the pairing right: Unsafe Red, Needs fixing soon Amber, Cosmetic Green?
-- [ ] For nice to haves, does the order come from cost, from effort, or from both?
-- [ ] Should a reopened item keep its full history of closes and reopens?
+- [ ] What does RAG measure, now that severity is separate? For example urgency, or how much attention an item needs now.
+- [ ] What scale do the Cost and Effort sliders use, for example 1 to 5, and which end is high?
+- [ ] Should the nice-to-haves list order by score, and in which direction?
+- [ ] Should the activity log be kept forever, or trimmed after a period?
