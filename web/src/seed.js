@@ -45,10 +45,17 @@ export function seed(today) {
     { id: 'hall', name: 'Hall' },
     { id: 'laundry', name: 'Laundry' },
     { id: 'garden', name: 'Garden' },
+    { id: 'utility-room', name: 'Utility room' },
   ];
   const things = [
     { id: 't-toilet-bathroom', spaceId: 'bathroom', type: 'Toilet' },
     { id: 't-toilet-downstairs', spaceId: 'downstairs-loo', type: 'Toilet' },
+  ];
+
+  // Snags are things that are wrong; nice to haves are ideas for later (ADR-0009).
+  const issues = [
+    { id: 'i-tap', kind: 'snag', title: 'Tap is dripping', spaceId: 'utility-room', addedOn: addDays(today, -4), doneOn: null },
+    { id: 'i-curtains', kind: 'nice', title: 'Make curtains to keep the cold out', spaceId: 'living-room', addedOn: addDays(today, -20), doneOn: null },
   ];
 
   const startDate = addDays(today, -400);
@@ -69,5 +76,5 @@ export function seed(today) {
     return ids.map((routineId) => ({ routineId, doneOn, dueOn: doneOn, skipped: false, personId: null }));
   });
 
-  return { persons, routines, completions, spaces, things };
+  return { persons, routines, completions, spaces, things, issues };
 }
