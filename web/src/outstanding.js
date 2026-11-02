@@ -37,12 +37,13 @@ export function outstanding({ routines, completions, today, horizonDays = 7, per
         assigneeName: persons.get(routine.assigneeId)?.name ?? null,
       };
     })
-    .filter((item) => item.days <= horizonDays)
+    // A renewal shows once it is within its lead time, even when that is longer than the horizon.
+    .filter((item) => item.days <= Math.max(horizonDays, item.routine.kind === 'renewal' ? item.routine.leadDays ?? 30 : 0))
     .sort((a, b) => a.days - b.days || a.routine.title.localeCompare(b.routine.title));
 }
 
 const WHEN_ORDER = ['Overdue', 'Today', 'Tomorrow', 'In 2–7 days', 'In 8–30 days', 'Later'];
-const CADENCE_ORDER = ['Every 1–3 days', 'Every 4–14 days', 'Every 15–45 days', 'Every 46+ days', 'Weekly on set days', 'Monthly on a set day'];
+const CADENCE_ORDER = ['Every 1–3 days', 'Every 4–14 days', 'Every 15–45 days', 'Every 46+ days', 'Weekly on set days', 'Monthly on a set day', 'Renewals'];
 
 function whenKey(days) {
   if (days < 0) return 'Overdue';
@@ -56,6 +57,7 @@ function whenKey(days) {
 function cadenceKey(routine) {
   if (routine.kind === 'weekly') return 'Weekly on set days';
   if (routine.kind === 'monthly') return 'Monthly on a set day';
+  if (routine.kind === 'renewal') return 'Renewals';
   const n = routine.intervalDays ?? 7;
   if (n <= 3) return 'Every 1–3 days';
   if (n <= 14) return 'Every 4–14 days';

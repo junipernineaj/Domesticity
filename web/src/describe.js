@@ -1,5 +1,5 @@
 // Human wording for a routine's schedule, used on the Configure page.
-import { weekday } from './dates.js';
+import { parts, weekday } from './dates.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -9,8 +9,16 @@ function ordinal(n) {
   return suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0];
 }
 
-/** @param {{kind: string, intervalDays?: number, weekdays?: number[], dayOfMonth?: number, startDate: string}} r */
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** @param {{kind: string, intervalDays?: number, weekdays?: number[], dayOfMonth?: number, startDate: string, everyMonths?: number}} r */
 export function scheduleText(r) {
+  if (r.kind === 'renewal') {
+    const { day, month } = parts(r.startDate);
+    const every = r.everyMonths ?? 12;
+    const how = every === 12 ? 'Yearly' : every === 6 ? 'Twice a year' : 'Every 3 months';
+    return `${how}, on ${day}${ordinal(day)} ${MONTH_NAMES[month - 1]}`;
+  }
   if (r.kind === 'interval') {
     const n = r.intervalDays ?? 7;
     if (n === 1) return 'Every day';

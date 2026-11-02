@@ -1,6 +1,6 @@
 # Domesticity Web: Specification
 
-Status: Draft v0.18, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before. v0.14: calendar view, proposed. v0.15: booked holidays are busy days; range a year, possibly 18 months. v0.16: load is the count of tasks due in a day; green 0, amber 1 to 2, red 3 to 4. v0.17: 5 or more tasks is a deeper red. v0.18: images on snags and nice to haves, ADR-0013)
+Status: Draft v0.19, 2 Nov 2026 (v0.2: tags and places replace the single room; Outstanding dashboard added. v0.3: snags and nice-to-haves, ADR-0009. v0.4: routine descriptions. v0.5: snag severity, RAG colours, assignees, reopen. v0.6: separate severity and RAG, cost and effort sliders, images, activity log. v0.7: RAG is urgency, sliders 1 to 5, log kept forever. v0.8: 5 is high on both sliders. v0.9: nice to haves list highest score first. v0.10: lowest score first, so cheap and easy ideas can be picked off. v0.11: annual routines and holiday plans, proposed. v0.12: renewals on set dates per item, every 3, 6 or 12 months, with a renewal reminder; holiday defaults; two-step status. v0.13: holiday pairings confirmed; default renewal reminder 30 days before. v0.14: calendar view, proposed. v0.15: booked holidays are busy days; range a year, possibly 18 months. v0.16: load is the count of tasks due in a day; green 0, amber 1 to 2, red 3 to 4. v0.17: 5 or more tasks is a deeper red. v0.18: images on snags and nice to haves, ADR-0013. v0.19: renewals built, ADR-0014)
 Owner: Tony
 Related: `docs/adr/` (decisions), `GUARDRAILS.md` (rules for changing this codebase)
 
@@ -64,6 +64,14 @@ These rules are the definition of correct behaviour. They match the iOS app. Eve
 **5.8 Streak.** Count consecutive on-time, non-skipped completions, most recent first. Skips do not break a streak. A routine that is overdue right now has a streak of zero.
 
 **5.9 On-time rate** over a window (default 30 days): on-time completions divided by (completions in the window + routines overdue right now). Routines overdue right now always count against the rate.
+
+**5.11 Renewals.** A renewal is a bill or subscription that comes round on a set date every 3, 6 or 12 months (ADR-0014).
+- The set date is the routine's start date. Its day of the month is the renewal day, and its month sets which months the renewal falls in. For a 6-month renewal set on 14 March, the months are March and September.
+- A renewal with no completions is due on its set date, or the first occurrence on or after it.
+- Otherwise it works like section 5.3. The next occurrence is the first one on or after the day after the covered slot (5.4).
+- Days 29 to 31 fall back to the last day of shorter months, as in 5.3.
+- Early or late completions move the next renewal from the day actually done, as in 5.4.
+- Reminders come `lead days` before the due date. The default is 30, and each renewal can change it. Renewals are shown on Outstanding once they are within their lead time, even if that is longer than the Outstanding range.
 
 **5.10 Weekly and monthly progress chart** groups completions by ISO week (Monday start, or the locale's first day of week as set in settings) into "On time" and "Late" counts.
 
@@ -140,14 +148,14 @@ A record of what happened, newest first, so changes can be traced.
 - The log is kept forever. It is not trimmed.
 - The log is shown newest first, on its own page.
 
-### 6.11 Annual routines and holiday plans (proposed)
-Not built. Recorded from the design review of 2 Nov 2026. Each part needs an ADR before it is built. The renewal schedule changes the scheduling rules, and GUARDRAILS requires an ADR and golden tests for that.
+### 6.11 Annual routines and holiday plans
+Renewals are built (section 5.11, ADR-0014). Holiday plans are not built yet and need an ADR first. Recorded from the design review of 2 Nov 2026.
 
 - **Renewals:** recurring bills and subscriptions, such as car insurance, house insurance, and subscription renewals.
   - Each renewal has its own set date. Renewals vary, so one date is not shared across items.
   - Each renewal recurs every 3 months (quarterly), 6 months (bi-annually), or 12 months (yearly), chosen per item.
   - Proposed as a new schedule kind, set on a set day and month and repeated every 3, 6 or 12 months. Dates that do not exist in a month, such as 31 in April, fall back to the last day of that month. This is proposed over a 365-day interval, which would drift in leap years and cannot express quarterly or bi-annual dates cleanly.
-  - Each renewal has a reminder set before it is due. The default lead time is 30 days, and each item can change it. Reminders use ADR-0004.
+  - Each renewal has a reminder set before it is due. The default lead time is 30 days, and each item can change it. Reminders use ADR-0004. Built as section 5.11 and ADR-0014. The reminders themselves are not sent yet.
   - In the Cadence lens, renewals form their own group, Renewals, so they are not mixed with routines that repeat in days.
   - They appear in Outstanding like other routines.
 - **Holiday plans:** occasions held once a year, under Nice to haves. The household has three by default:
@@ -291,6 +299,7 @@ Notes:
 | Rooms (single room per routine) | Changed | Tags and places, many per routine (ADR-0007) |
 | Routines grouped by room | Changed | Lenses on the Outstanding dashboard (section 6.8) |
 | Outstanding dashboard | New | Not in iOS: multi-lens view of what's due |
+| Renewals on set dates (3, 6 or 12 months) | New | Section 5.11, ADR-0014 |
 
 ## 10. Architecture overview
 

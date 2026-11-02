@@ -29,6 +29,7 @@ const KINDS = [
   ['interval', 'Every N days'],
   ['weekly', 'On set weekdays'],
   ['monthly', 'Monthly on a set day'],
+  ['renewal', 'Renewal on a set date (every 3, 6 or 12 months)'],
 ];
 
 // Mon first, to match how people read a week. Values are Calendar weekday numbers (1 = Sunday).
@@ -282,6 +283,7 @@ function saveRoutine(existing, f, errorEl) {
     errorEl.textContent = 'Give the routine a name.';
     return;
   }
+  const isRenewal = f.kind.value === 'renewal';
   const routine = {
     id: existing?.id ?? `r${Date.now()}`,
     title,
@@ -289,7 +291,10 @@ function saveRoutine(existing, f, errorEl) {
     intervalDays: Math.min(365, Math.max(1, Number(f.intervalDays.value) || 1)),
     weekdays: f.dayBoxes.filter((d) => d.checked).map((d) => Number(d.value)),
     dayOfMonth: Math.min(31, Math.max(1, Number(f.dayOfMonth.value) || 1)),
-    startDate: existing?.startDate ?? state.today,
+    // For a renewal the set date is the start date (SPEC 5.11).
+    startDate: isRenewal ? (f.setDate.value || existing?.startDate || state.today) : existing?.startDate ?? state.today,
+    everyMonths: isRenewal ? Number(f.everyMonths.value) : null,
+    leadDays: isRenewal ? Math.min(365, Math.max(0, Number(f.leadDays.value) || 0)) : null,
     paused: f.paused.checked,
     description: f.description.value.trim() || undefined,
     places: splitList(f.places.value),
@@ -334,6 +339,15 @@ function routineEditor(id) {
   f.intervalDays.value = r.intervalDays ?? 7;
   f.dayOfMonth.value = r.dayOfMonth ?? 1;
   f.paused.checked = !!r.paused;
+  f.setDate = el('input', { type: 'date' });
+  f.setDate.value = r.startDate ?? state.today;
+  f.everyMonths = el('select', {},
+    el('option', { value: '3' }, 'Every 3 months (quarterly)'),
+    el('option', { value: '6' }, 'Every 6 months (twice a year)'),
+    el('option', { value: '12' }, 'Every 12 months (yearly)'));
+  f.everyMonths.value = String(r.everyMonths ?? 12);
+  f.leadDays = el('input', { type: 'number', min: '0', max: '365' });
+  f.leadDays.value = String(r.leadDays ?? 30);
   f.targetType = el('input', { type: 'text', maxlength: '40', placeholder: 'e.g. Toilet' });
   f.targetType.value = r.targetType ?? '';
   f.dayBoxes = WEEKDAYS.map(([n, label]) => {
@@ -344,6 +358,27 @@ function routineEditor(id) {
 
   const errorEl = el('div', { class: 'error' });
   const add = (label, input, hint) => el('label', {}, label, input, hint ? el('span', { class: 'hint' }, hint) : null);
+
+  const renewalFields = el('div', {},
+    add('Set date (the renewal date for this item)', f.setDate, 'Changing it moves the schedule. Completed renewals keep their history.'),
+    add('How often it renews', f.everyMonths),
+    add('Remind this many days before (lead time)', f.leadDays, 'Reminders are not sent yet. Renewals show on Outstanding from this many days ahead.'),
+  );
+  // Renewals use the set date instead of the every-N-days, weekday and day-of-month fields.
+  const otherScheduleFields = [
+    add('Every how many days? (for "Every N days")', f.intervalDays),
+    el('div', {},
+      el('div', { class: 'hint' }, 'Which weekdays? (for "On set weekdays")'),
+      el('div', { class: 'days' }, ...f.dayBoxes.map(({ box, label }) => el('label', {}, box, label)))),
+    add('Day of the month (for "Monthly")', f.dayOfMonth, 'Days 29–31 fall back to the last day in shorter months.'),
+  ];
+  const syncRenewal = () => {
+    const isRenewal = f.kind.value === 'renewal';
+    renewalFields.hidden = !isRenewal;
+    for (const node of otherScheduleFields) node.hidden = isRenewal;
+  };
+  f.kind.addEventListener('change', syncRenewal);
+  syncRenewal();
 
   return el('form', {
     class: 'editor',
@@ -356,11 +391,8 @@ function routineEditor(id) {
     add('Tags (comma-separated, e.g. cleaning, laundry)', f.tags),
     add('Repeat for each of these things in your spaces (optional, e.g. Toilet)', f.targetType, 'Each toilet on the Spaces page becomes its own task, with its space named.'),
     add('Schedule', f.kind),
-    add('Every how many days? (for "Every N days")', f.intervalDays),
-    el('div', {},
-      el('div', { class: 'hint' }, 'Which weekdays? (for "On set weekdays")'),
-      el('div', { class: 'days' }, ...f.dayBoxes.map(({ box, label }) => el('label', {}, box, label)))),
-    add('Day of the month (for "Monthly")', f.dayOfMonth, 'Days 29–31 fall back to the last day in shorter months.'),
+    ...otherScheduleFields,
+    renewalFields,
     el('label', { class: 'check' }, f.paused, 'Paused (doesn\'t come up or remind)'),
     errorEl,
     el('div', { class: 'row' },
