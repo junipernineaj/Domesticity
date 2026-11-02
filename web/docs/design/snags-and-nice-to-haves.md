@@ -99,9 +99,10 @@ Recorded 2 Nov 2026, from Tony's request. Not built.
 - Free weekends are the main use: finding weekends for friends and guests.
 - Due dates in the future come from projecting each routine and renewal forward. Projections move when a routine is done early or late.
 
+- Booked holidays count as busy days.
+- The calendar looks a year ahead, possibly 18 months.
+
 ### Open questions
 
-- [ ] What counts as "a lot to do": a count of items, or weighted by time or effort?
-- [ ] Where are the colour thresholds: none, light, busy, heavy?
-- [ ] Do booked holidays count as busy days, or as days away?
-- [ ] How far ahead should the calendar look: this year, or further?
+- [ ] What counts as "a lot to do": a count of items, or weighted by time or effort? To be decided from use.
+- [ ] Where are the colour thresholds: none, light, busy, heavy? To be decided from use.
