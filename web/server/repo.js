@@ -15,7 +15,7 @@ function formatDay(date) {
   return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
 }
 
-export const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions', 'holidays'];
+export const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions', 'holidays', 'settings'];
 const MAX_OPS = 500;
 
 export class ValidationError extends Error {}
@@ -128,6 +128,7 @@ const VALIDATORS = {
         target_type: str(item.targetType, 'target type', 40, { optional: true }),
         assignee_id: idOrNull(item.assigneeId, 'assignee'),
         description: str(item.description, 'description', 500, { optional: true }),
+        area: oneOf(item.area ?? 'house', ['house', 'care'], 'area'),
         // Renewals only (ADR-0014): repeat every 3, 6 or 12 months, with a reminder lead time.
         every_months: isRenewal ? renewalMonthsOf(item.everyMonths) : null,
         lead_days: isRenewal ? intOrNull(item.leadDays ?? 30, 0, 365, 'reminder lead time') : null,
@@ -135,6 +136,11 @@ const VALIDATORS = {
       tags: listOf(item.tags, 'tags', 40),
       places: listOf(item.places, 'places', 40),
     };
+  },
+
+  settings: (item) => {
+    if (item.id !== 'household') fail('the only settings row is household');
+    return { row: { id: 'household', self_care: bool01(item.selfCare, 'self care') } };
   },
 
   holidays: (item) => {
@@ -202,9 +208,10 @@ const VALIDATORS = {
 const KIND_LABEL = { snag: 'snag', nice: 'nice to have' };
 const COLUMN_NAMES = {
   persons: ['id', 'name'], spaces: ['id', 'name'], things: ['id', 'space_id', 'type'],
-  routines: ['id', 'title', 'kind', 'interval_days', 'day_of_month', 'weekdays', 'start_date', 'paused', 'target_type', 'assignee_id', 'description', 'every_months', 'lead_days'],
+  routines: ['id', 'title', 'kind', 'interval_days', 'day_of_month', 'weekdays', 'start_date', 'paused', 'target_type', 'assignee_id', 'description', 'every_months', 'lead_days', 'area'],
   issues: ['id', 'kind', 'title', 'space_id', 'added_on', 'done_on', 'severity', 'rag', 'assignee', 'cost', 'effort'],
   holidays: ['id', 'name', 'target_month', 'target_day', 'note', 'booked_for'],
+  settings: ['self_care'],
   completions: ['id', 'routine_id', 'thing_id', 'done_on', 'due_on', 'skipped', 'person_id'],
 };
 
@@ -250,6 +257,11 @@ function describeChange(db, p) {
     return `${row.skipped ? 'Skipped' : 'Did'} ${title}`;
   }
   if (table === 'persons') return before ? `Changed person: ${row.name}` : `Added person: ${row.name}`;
+  if (table === 'settings') {
+    if (!before) return null;
+    if (before.self_care === row.self_care) return null;
+    return row.self_care ? 'Turned on self care and pets' : 'Turned off self care and pets';
+  }
   if (table === 'holidays') {
     if (!before) return `Added holiday: ${row.name}`;
     if (before.booked_for == null && row.booked_for != null) return `Booked holiday: ${row.name}, ${formatDay(row.booked_for)}`;
@@ -351,11 +363,14 @@ export function loadAll(db) {
       targetType: r.target_type,
       assigneeId: r.assignee_id,
       description: r.description,
+      area: r.area,
       everyMonths: r.every_months,
       leadDays: r.lead_days,
       tags: tagsBy.get(r.id) ?? [],
       places: placesBy.get(r.id) ?? [],
     })),
+    settings: db.prepare('SELECT id, self_care AS selfCare FROM settings ORDER BY id').all()
+      .map((s) => ({ id: s.id, selfCare: s.selfCare === 1 })),
     holidays: db.prepare(
       `SELECT id, name, target_month AS targetMonth, target_day AS targetDay, note, booked_for AS bookedFor
        FROM holidays ORDER BY rowid`,
