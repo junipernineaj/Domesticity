@@ -13,6 +13,7 @@ import {
 import { scoreOf } from '/src/issues-rules.js';
 import { isBooked, nextOccurrence } from '/src/holidays.js';
 import { buildCalendar, CALENDAR_DAYS, LOAD_LEVELS, loadLevel, monthsInRange } from '/src/calendar.js';
+import { AREAS, areaLabel, CARE_LABEL, visibleRoutines } from '/src/areas.js';
 
 const TIME_ZONE = 'Europe/London';
 const HORIZONS = [7, 30];
@@ -40,7 +41,7 @@ const WEEKDAYS = [[2, 'Mon'], [3, 'Tue'], [4, 'Wed'], [5, 'Thu'], [6, 'Fri'], [7
 const today = todayIn(TIME_ZONE);
 // Data collections come from GET /api/data. `state` is the working copy. `saved` holds what the
 // server last confirmed, and sync() sends whatever differs.
-const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions', 'holidays'];
+const COLLECTIONS = ['persons', 'spaces', 'things', 'routines', 'issues', 'completions', 'holidays', 'settings'];
 // issueImages: item id -> a version number for the picture URL, set when the picture loads or changes.
 // Pictures are not part of the synced working copy (ADR-0013).
 const state = { today, horizonDays: 7, longRange: null, loaded: false, error: null, saveError: null, issueImages: new Map(), imageError: null };
@@ -66,8 +67,10 @@ function el(tag, attrs = {}, ...children) {
 }
 
 const persons = () => new Map(state.persons.map((p) => [p.id, p]));
-// Routines as the schedule sees them: targeted routines expanded to one per thing.
-const allRoutines = () => expandRoutines(state.routines, state.spaces, state.things);
+// Self care and pets (ADR-0017) is on only when the household setting says so.
+const selfCareOn = () => state.settings[0]?.selfCare === true;
+// Routines as the schedule sees them: hidden areas removed, then targeted routines expanded to one per thing.
+const allRoutines = () => expandRoutines(visibleRoutines(state.routines, selfCareOn()), state.spaces, state.things);
 const outstandingItems = (horizonDays) => outstanding({
   routines: allRoutines(),
   holidays: state.holidays,
@@ -337,15 +340,28 @@ function outstandingPage(viewId) {
 // ---- Configure (routines) ---------------------------------------------------------------
 
 function configureList() {
+  const shown = visibleRoutines(state.routines, selfCareOn());
+  const toggle = el('label', { class: 'check' },
+    el('input', {
+      type: 'checkbox',
+      checked: selfCareOn() ? true : null,
+      disabled: state.settings.length === 0 ? true : null,
+      onchange: (e) => {
+        if (state.settings[0]) state.settings[0].selfCare = e.target.checked;
+        render();
+      },
+    }),
+    `Show ${CARE_LABEL.toLowerCase()} (brushing teeth, hair, eye tests, the dogs and so on)`);
   return el('div', {},
     el('h1', {}, 'Configure'),
+    toggle,
     el('div', { class: 'row' },
       el('a', { class: 'btn primary', href: '#/configure/new' }, 'Add routine'),
     ),
-    state.routines.length === 0
+    shown.length === 0
       ? el('div', { class: 'empty' }, 'No routines yet.')
       : el('section', { class: 'group' },
-          el('ul', { class: 'items' }, ...state.routines.map((r) =>
+          el('ul', { class: 'items' }, ...shown.map((r) =>
             el('li', {},
               el('div', {},
                 ...titleWithInfo(`${r.title}${r.paused ? ' (paused)' : ''}`, r.description),
@@ -355,6 +371,7 @@ function configureList() {
                   r.places.length ? r.places.join(', ') : 'Anywhere',
                   r.tags.length ? ` · ${r.tags.join(', ')}` : '',
                   r.targetType ? ` · for each ${r.targetType}` : '',
+                  r.area === 'care' ? ` · ${areaLabel(r.area)}` : '',
                 ),
               ),
               el('div', { class: 'actions' },
@@ -392,6 +409,7 @@ function saveRoutine(existing, f, errorEl) {
     places: splitList(f.places.value),
     tags: splitList(f.tags.value),
     targetType: f.targetType.value.trim() || undefined,
+    area: f.area.value,
     assigneeId: existing?.assigneeId ?? null,
   };
   if (existing) Object.assign(existing, routine);
@@ -442,6 +460,8 @@ function routineEditor(id) {
   f.leadDays.value = String(r.leadDays ?? 30);
   f.targetType = el('input', { type: 'text', maxlength: '40', placeholder: 'e.g. Toilet' });
   f.targetType.value = r.targetType ?? '';
+  f.area = el('select', {}, ...AREAS.map(({ id, label }) => el('option', { value: id }, label)));
+  f.area.value = r.area ?? 'house';
   f.dayBoxes = WEEKDAYS.map(([n, label]) => {
     const box = el('input', { type: 'checkbox', value: String(n) });
     box.checked = (r.weekdays ?? []).includes(n);
@@ -450,6 +470,9 @@ function routineEditor(id) {
 
   const errorEl = el('div', { class: 'error' });
   const add = (label, input, hint) => el('label', {}, label, input, hint ? el('span', { class: 'hint' }, hint) : null);
+  // The area choice only appears while self care and pets is on; a routine already in that area keeps it.
+  const areaField = add('Area', f.area, 'Self care and pets shows only while it is switched on in Configure.');
+  areaField.hidden = !selfCareOn();
 
   const renewalFields = el('div', {},
     add('Set date (the renewal date for this item)', f.setDate, 'Changing it moves the schedule. Completed renewals keep their history.'),
@@ -482,6 +505,7 @@ function routineEditor(id) {
     add('Places (comma-separated, e.g. Kitchen, Hall)', f.places, 'Leave empty if it isn\'t about a place.'),
     add('Tags (comma-separated, e.g. cleaning, laundry)', f.tags),
     add('Repeat for each of these things in your spaces (optional, e.g. Toilet)', f.targetType, 'Each toilet on the Spaces page becomes its own task, with its space named.'),
+    areaField,
     add('Schedule', f.kind),
     intervalField,
     weekdayField,
